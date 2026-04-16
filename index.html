@@ -91,6 +91,7 @@ function renderTabBar(){
 }
 
 function u(formKey, field, val){ forms[formKey][field] = val; renderForm(); }
+function uText(formKey, field, val){ forms[formKey][field] = val; updateSubmitBtn(formKey); }
 
 function Section(title, colorFg, colorBg, bodyHTML){
   return `<div class="section">
@@ -131,13 +132,13 @@ function toggleMulti(formKey, field, val){
 function TextInput(formKey, field, label, placeholder, required=false){
   const val = forms[formKey][field]||"";
   return `<div class="field"><label>${label}${required?'<span class="req"> *</span>':''}</label>
-    <input type="text" value="${val.replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="u('${formKey}','${field}',this.value)" /></div>`;
+    <input type="text" value="${val.replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="uText('${formKey}','${field}',this.value)" /></div>`;
 }
 
 function TextArea(formKey, field, label, placeholder, rows=3, required=false){
   const val = forms[formKey][field]||"";
   return `<div class="field"><label>${label}${required?'<span class="req"> *</span>':''}</label>
-    <textarea rows="${rows}" placeholder="${placeholder}" oninput="u('${formKey}','${field}',this.value)">${val}</textarea></div>`;
+    <textarea rows="${rows}" placeholder="${placeholder}" oninput="uText('${formKey}','${field}',this.value)">${val}</textarea></div>`;
 }
 
 function PhotoUpload(formKey, field, label){
@@ -157,7 +158,15 @@ function handlePhoto(formKey, field, input){
   const url = URL.createObjectURL(file);
   photoURLs[formKey+"_"+field] = url;
   forms[formKey][field] = file.name;
-  renderForm();
+  const lbl = document.getElementById("uplabel_"+formKey+"_"+field);
+  if(lbl){
+    lbl.className = "upload-label has-file";
+    lbl.childNodes[0].textContent = file.name;
+    const existing = lbl.parentElement.querySelector(".preview-img");
+    if(existing) existing.src = url;
+    else { const img = document.createElement("img"); img.src = url; img.className = "preview-img"; lbl.parentElement.appendChild(img); }
+  }
+  updateSubmitBtn(formKey);
 }
 
 function saveSubmission(formType, data){
@@ -233,7 +242,7 @@ function renderFoundational(){
     PhotoUpload("foundational","photo1","Full body — side view")+
     PhotoUpload("foundational","photo2","Close-up of key issue area")
   );
-  html += `<button class="submit-btn" onclick="submitForm('foundational','Foundational')" ${canSubmit?"":'disabled'}
+  html += `<button id="submitBtn_foundational" class="submit-btn" onclick="submitForm('foundational','Foundational')" ${canSubmit?"":'disabled'}
     style="background:${canSubmit?"#534AB7":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
     ${canSubmit?"Save foundational assessment":"Fill required fields + photo to submit"}</button>`;
   return html;
@@ -302,7 +311,7 @@ function renderTouchup(){
     Radio("touchup","incident","Anything unexpected happen?",["No","Yes"])+
     (d.incident==="Yes"?TextArea("touchup","inc_what","What happened?","")+Radio("touchup","pet_inj","Pet injured (even minor)?",["No","Yes"])+Radio("touchup","grm_inj","Groomer injured?",["No","Yes"])+Radio("touchup","owner_inf","Owner informed?",["Yes","No","Not present"]):"")
   );
-  html += `<button class="submit-btn" onclick="submitForm('touchup','Touch-up')" ${canSubmit?"":'disabled'}
+  html += `<button id="submitBtn_touchup" class="submit-btn" onclick="submitForm('touchup','Touch-up')" ${canSubmit?"":'disabled'}
     style="background:${canSubmit?"#1D9E75":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
     ${canSubmit?"Submit touch-up report":"Fill required fields + photo to submit"}</button>`;
   return html;
@@ -388,7 +397,7 @@ function renderVan(){
     Radio("van","incident","Anything unexpected happen?",["No","Yes"])+
     (d.incident==="Yes"?TextArea("van","inc_what","What happened?","")+Radio("van","pet_inj","Pet injured?",["No","Yes"])+Radio("van","grm_inj","Groomer injured?",["No","Yes"])+Radio("van","owner_inf","Owner informed?",["Yes","No","Not present"]):"")
   );
-  html += `<button class="submit-btn" onclick="submitForm('van','Van maintenance')" ${canSubmit?"":'disabled'}
+  html += `<button id="submitBtn_van" class="submit-btn" onclick="submitForm('van','Van maintenance')" ${canSubmit?"":'disabled'}
     style="background:${canSubmit?"#185FA5":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
     ${canSubmit?"Submit van maintenance report":"Fill required fields + both photos to submit"}</button>`;
   return html;
@@ -443,6 +452,22 @@ function renderSubmissions(){
 
 function clearSubs(){ localStorage.removeItem("groomSubs"); renderForm(); }
 
+function updateSubmitBtn(formKey){
+  const btn = document.getElementById("submitBtn_"+formKey);
+  if(!btn) return;
+  let canSubmit = false;
+  if(formKey==="foundational") canSubmit = !!(forms.foundational.pet && forms.foundational.groomer && photoURLs["foundational_photo1"]);
+  else if(formKey==="touchup") canSubmit = !!(forms.touchup.pet && forms.touchup.groomer && photoURLs["touchup_photo"]);
+  else if(formKey==="van") canSubmit = !!(forms.van.pet && forms.van.groomer && photoURLs["van_photo_before"] && photoURLs["van_photo_after"]);
+  const colors = { foundational:"#534AB7", touchup:"#1D9E75", van:"#185FA5" };
+  const labels = { foundational:["Save foundational assessment","Fill required fields + photo to submit"], touchup:["Submit touch-up report","Fill required fields + photo to submit"], van:["Submit van maintenance report","Fill required fields + both photos to submit"] };
+  btn.disabled = !canSubmit;
+  btn.style.background = canSubmit ? colors[formKey] : "var(--color-border-tertiary)";
+  btn.style.color = canSubmit ? "#fff" : "var(--color-text-tertiary)";
+  btn.style.cursor = canSubmit ? "pointer" : "not-allowed";
+  btn.textContent = canSubmit ? labels[formKey][0] : labels[formKey][1];
+}
+
 function renderForm(){
   const area = document.getElementById("formArea");
   if(currentTab==="foundational") area.innerHTML = renderFoundational();
@@ -456,5 +481,3 @@ renderForm();
 </script>
 </body>
 </html>
-
-
