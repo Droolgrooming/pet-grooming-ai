@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Grooming assessment forms</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f5f4;
+    --color-background-tertiary: #eeecea;
+    --color-text-primary: #1a1a18;
+    --color-text-secondary: #5a5a56;
+    --color-text-tertiary: #9a9a94;
+    --color-border-tertiary: rgba(0,0,0,0.12);
+    --color-border-secondary: rgba(0,0,0,0.22);
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1e1e1c;
+      --color-background-secondary: #2a2a28;
+      --color-background-tertiary: #252523;
+      --color-text-primary: #f0ede8;
+      --color-text-secondary: #a8a49e;
+      --color-text-tertiary: #6a6660;
+      --color-border-tertiary: rgba(255,255,255,0.12);
+      --color-border-secondary: rgba(255,255,255,0.22);
+    }
+  }
+  body { font-family: var(--font-sans); background: var(--color-background-tertiary); color: var(--color-text-primary); }
+  .tab-bar { position: sticky; top: 0; z-index: 10; background: var(--color-background-tertiary); padding: 8px 0; display: flex; gap: 6px; }
+  .tab-btn { flex: 1; padding: 10px 4px; border: none; cursor: pointer; font-size: 12px; font-weight: 500; border-radius: 10px; transition: all .15s; font-family: var(--font-sans); }
+  .tab-btn.inactive { background: var(--color-background-primary); color: var(--color-text-secondary); box-shadow: inset 0 0 0 1px var(--color-border-tertiary); }
+  .section { margin-bottom: 24px; border-radius: 12px; overflow: hidden; border: 1px solid var(--color-border-tertiary); }
+  .section-head { padding: 10px 16px; border-bottom: 2px solid; }
+  .section-head h3 { font-size: 15px; font-weight: 500; margin: 0; }
+  .section-body { padding: 16px 16px 4px; background: var(--color-background-primary); }
+  .field { margin-bottom: 16px; }
+  .field label { font-size: 14px; font-weight: 500; color: var(--color-text-primary); display: block; margin-bottom: 8px; }
+  .field label .req { color: #E24B4A; }
+  .field input[type=text], .field textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-primary); font-size: 14px; font-family: inherit; }
+  .field textarea { resize: vertical; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 8px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all .15s; border: 1.5px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-secondary); font-weight: 400; font-family: var(--font-sans); }
+  .field-note { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 8px; }
+  .submit-btn { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 16px; font-weight: 500; cursor: pointer; margin-bottom: 32px; transition: all .15s; font-family: var(--font-sans); }
+  .upload-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px; border-radius: 12px; border: 2px dashed var(--color-border-secondary); background: var(--color-background-secondary); cursor: pointer; font-size: 14px; color: var(--color-text-secondary); font-weight: 500; transition: all .15s; }
+  .upload-label.has-file { border-color: #0F6E56; background: #E1F5EE; color: #0F6E56; }
+  .preview-img { width: 100%; border-radius: 10px; margin-top: 10px; max-height: 200px; object-fit: cover; }
+  .delta-box { padding: 12px; border-radius: 10px; background: #EEEDFE; font-size: 13px; color: #534AB7; font-weight: 500; margin-bottom: 8px; }
+  .success-screen { text-align: center; padding: 40px; }
+  .success-icon { font-size: 48px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div style="max-width:480px;margin:0 auto;padding:0 12px 20px;">
+  <div class="tab-bar" id="tabBar"></div>
+  <div id="formArea" style="padding-top:12px;"></div>
+</div>
+
+<script>
+const TABS = [
+  { id:"foundational", label:"Foundation", color:"#534AB7" },
+  { id:"touchup",      label:"Touch-up",   color:"#1D9E75" },
+  { id:"van",          label:"Van",         color:"#185FA5" },
+  { id:"submissions",  label:"Results",     color:"#888780" }
+];
+
+let currentTab = "touchup";
+let forms = { foundational:{}, touchup:{}, van:{} };
+let photoURLs = {};
+
+function setTab(id){ currentTab = id; renderTabBar(); renderForm(); }
+
+function renderTabBar(){
+  const bar = document.getElementById("tabBar");
+  bar.innerHTML = "";
+  TABS.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "tab-btn " + (currentTab===t.id?"":"inactive");
+    b.style.background = currentTab===t.id ? t.color : "";
+    b.style.color = currentTab===t.id ? "#fff" : "";
+    b.textContent = t.label;
+    b.onclick = ()=>setTab(t.id);
+    bar.appendChild(b);
+  });
+}
+
+function u(formKey, field, val){ forms[formKey][field] = val; renderForm(); }
+
+function Section(title, colorFg, colorBg, bodyHTML){
+  return `<div class="section">
+    <div class="section-head" style="background:${colorBg};border-color:${colorFg};">
+      <h3 style="color:${colorFg};">${title}</h3>
+    </div>
+    <div class="section-body">${bodyHTML}</div>
+  </div>`;
+}
+
+function Radio(formKey, field, label, options, required=false){
+  const val = forms[formKey][field]||"";
+  const chips = options.map(o=>{
+    const sel = val===o;
+    return `<button class="chip" onclick="u('${formKey}','${field}','${o.replace(/'/g,"\\'")}');event.stopPropagation();"
+      style="${sel?`border-color:#534AB7;background:#EEEDFE;color:#534AB7;font-weight:500;`:""}">${o}</button>`;
+  }).join("");
+  return `<div class="field"><label>${label}${required?'<span class="req"> *</span>':''}</label><div class="chips">${chips}</div></div>`;
+}
+
+function Multi(formKey, field, label, options, note=""){
+  const val = forms[formKey][field]||[];
+  const chips = options.map(o=>{
+    const sel = val.includes(o);
+    const esc = o.replace(/'/g,"\\'");
+    return `<button class="chip" onclick="toggleMulti('${formKey}','${field}','${esc}');event.stopPropagation();"
+      style="${sel?`border-color:#0F6E56;background:#E1F5EE;color:#0F6E56;font-weight:500;`:""}">${o}</button>`;
+  }).join("");
+  return `<div class="field"><label>${label}</label>${note?`<div class="field-note">${note}</div>`:""}<div class="chips">${chips}</div></div>`;
+}
+
+function toggleMulti(formKey, field, val){
+  const arr = forms[formKey][field]||[];
+  forms[formKey][field] = arr.includes(val) ? arr.filter(v=>v!==val) : [...arr,val];
+  renderForm();
+}
+
+function TextInput(formKey, field, label, placeholder, required=false){
+  const val = forms[formKey][field]||"";
+  return `<div class="field"><label>${label}${required?'<span class="req"> *</span>':''}</label>
+    <input type="text" value="${val.replace(/"/g,'&quot;')}" placeholder="${placeholder}" oninput="u('${formKey}','${field}',this.value)" /></div>`;
+}
+
+function TextArea(formKey, field, label, placeholder, rows=3, required=false){
+  const val = forms[formKey][field]||"";
+  return `<div class="field"><label>${label}${required?'<span class="req"> *</span>':''}</label>
+    <textarea rows="${rows}" placeholder="${placeholder}" oninput="u('${formKey}','${field}',this.value)">${val}</textarea></div>`;
+}
+
+function PhotoUpload(formKey, field, label){
+  const url = photoURLs[formKey+"_"+field];
+  return `<div class="field"><label>${label} <span class="req">*</span></label>
+    <label class="upload-label ${url?'has-file':''}" id="uplabel_${formKey}_${field}">
+      ${url ? (forms[formKey][field]||"Photo uploaded") : "Tap to take or upload photo"}
+      <input type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto('${formKey}','${field}',this)" />
+    </label>
+    ${url?`<img src="${url}" class="preview-img" />`:""}
+  </div>`;
+}
+
+function handlePhoto(formKey, field, input){
+  const file = input.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  photoURLs[formKey+"_"+field] = url;
+  forms[formKey][field] = file.name;
+  renderForm();
+}
+
+function saveSubmission(formType, data){
+  const subs = JSON.parse(localStorage.getItem("groomSubs")||"[]");
+  subs.push({ formType, data: JSON.parse(JSON.stringify(data)), timestamp: new Date().toISOString() });
+  localStorage.setItem("groomSubs", JSON.stringify(subs));
+}
+
+function submitForm(formKey, formType){
+  saveSubmission(formType, forms[formKey]);
+  forms[formKey] = { __submitted: true };
+  photoURLs = Object.fromEntries(Object.entries(photoURLs).filter(([k])=>!k.startsWith(formKey+"_")));
+  renderForm();
+}
+
+function resetForm(formKey){ forms[formKey] = {}; renderForm(); }
+
+function renderFoundational(){
+  const d = forms.foundational;
+  if(d.__submitted) return `<div class="success-screen">
+    <div class="success-icon">&#10003;</div>
+    <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Assessment saved</h2>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Foundational report submitted.<br>View it in the Results tab.</p>
+    <button onclick="resetForm('foundational')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#534AB7;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New assessment</button>
+  </div>`;
+
+  const isDeshed = d.plan==="Hygiene + Deshedding";
+  const canSubmit = d.pet && d.groomer && photoURLs["foundational_photo1"];
+  let html = "";
+
+  html += Section("Session info","#534AB7","#EEEDFE",
+    TextInput("foundational","pet","Pet name","e.g., Bella",true)+
+    TextInput("foundational","breed","Breed","e.g., Golden Retriever",true)+
+    TextInput("foundational","age","Age","e.g., 3 years")+
+    TextInput("foundational","owner","Owner name","e.g., Sarah",true)+
+    TextInput("foundational","groomer","Senior groomer","Your name",true)+
+    Radio("foundational","plan","Plan type",["Hygiene","Hygiene + Deshedding"],true)
+  );
+  html += Section("Coat baseline","#1D9E75","#E1F5EE",
+    Radio("foundational","comb","Comb test — run comb through mid-back and one side",["Glides through","Catches slightly","Snags or pulls","Cannot pass"],true)+
+    Radio("foundational","coat_look","Coat appearance under good light",["Dull or dirty","Slightly dull","Clean, normal sheen","Bright, healthy shine"],true)+
+    Radio("foundational","matting","Matting",["None","Light tangles","Moderate mats","Severe mats"],true)+
+    (d.matting&&d.matting!=="None"?Multi("foundational","mat_loc","Where is the matting?",["Behind ears","Armpits","Belly","Back legs","Tail","Neck-collar area"]):"" )+
+    TextArea("foundational","coat_notes","Coat notes","Coat type, texture, anything notable...")
+  );
+  html += Section("Hygiene baseline","#185FA5","#E6F1FB",
+    Multi("foundational","hygiene_issues","Issues found during check",["Ear wax or odour","Eye discharge","Tear staining","Paw grime or irritation","Teeth buildup or gum redness","Body odour","Skin redness or flaking","Lump, bump, or unusual"],"Nothing selected = all areas clear")+
+    ((d.hygiene_issues||[]).length>0?TextArea("foundational","hygiene_detail","Details for each issue","Location, appearance, severity..."):"" )+
+    Radio("foundational","nails","Nail condition",["Good length","Slightly long","Overgrown","Problematic"])
+  );
+  if(isDeshed) html += Section("Deshedding baseline","#BA7517","#FAEEDA",
+    Radio("foundational","undercoat","Undercoat density — run fingers through side/rump",["Very dense, tightly packed","Dense but some give","Moderate","Light and airy"],true)+
+    Radio("foundational","shed_vol","Quick brush test — shedding volume",["Heavy","Moderate","Light","Minimal"],true)+
+    TextArea("foundational","undercoat_notes","Undercoat notes","Distribution, skin condition underneath...")
+  );
+  html += Section("Behaviour","#D85A30","#FAECE7",
+    Radio("foundational","behaviour","Overall temperament during assessment",["Very calm","Mostly calm","Unsettled","Difficult"],true)+
+    TextArea("foundational","beh_detail","Task-specific reactions","e.g., Pulls paw away, fine with brushing...")+
+    TextArea("foundational","handling","Handling notes — what works","Treats help? Better on floor or table?...")
+  );
+  html += Section("Target outcome and plan","#534AB7","#EEEDFE",
+    TextArea("foundational","target","Target outcome — what does success look like?","Be specific: e.g., Coat passes comb test...",4,true)+
+    Radio("foundational","freq","Recommended touch-up frequency",["2x per week","3x per week"],true)+
+    TextArea("foundational","phase1","Phase 1 priorities (Weeks 1–2)","What should groomers focus on first...")+
+    TextArea("foundational","phase2","Phase 2 priorities (Weeks 3–4)","What shifts in the middle...")+
+    TextArea("foundational","phase3","Phase 3 priorities (Week 5)","Maintenance and monitoring...")+
+    TextArea("foundational","products","Products to use","Product — when to use — notes (one per line)")
+  );
+  html += Section("Owner and access notes","#888780","#F1EFE8",
+    TextArea("foundational","owner_notes","Practical notes for the team","Who's home, where to groom, parking, other pets...",4)
+  );
+  html += Section("Baseline photos","#534AB7","#EEEDFE",
+    PhotoUpload("foundational","photo1","Full body — side view")+
+    PhotoUpload("foundational","photo2","Close-up of key issue area")
+  );
+  html += `<button class="submit-btn" onclick="submitForm('foundational','Foundational')" ${canSubmit?"":'disabled'}
+    style="background:${canSubmit?"#534AB7":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
+    ${canSubmit?"Save foundational assessment":"Fill required fields + photo to submit"}</button>`;
+  return html;
+}
+
+function renderTouchup(){
+  const d = forms.touchup;
+  if(d.__submitted) return `<div class="success-screen">
+    <div class="success-icon">&#10003;</div>
+    <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Touch-up saved</h2>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Session report submitted.<br>View it in the Results tab.</p>
+    <button onclick="resetForm('touchup')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New session</button>
+  </div>`;
+
+  const isDeshed = d.plan==="Hygiene + Deshedding";
+  const canSubmit = d.pet && d.groomer && photoURLs["touchup_photo"];
+  let html = "";
+
+  html += Section("Session info","#1D9E75","#E1F5EE",
+    TextInput("touchup","pet","Pet name","e.g., Bella",true)+
+    TextInput("touchup","breed","Breed","e.g., Golden Retriever",true)+
+    TextInput("touchup","groomer","Groomer name","Your name",true)+
+    Radio("touchup","plan","Plan type",["Hygiene","Hygiene + Deshedding"],true)+
+    Radio("touchup","owner_home","Owner home?",["Yes, owner","Yes, someone else","No"])
+  );
+  html += Section("Before — coat check on arrival","#D4537E","#FBEAF0",
+    `<div style="font-size:12px;color:#993556;margin-bottom:12px;font-style:italic;">Check the pet's condition BEFORE you start any work.</div>`+
+    Radio("touchup","comb_before","Comb test — run comb through mid-back and one side",["Glides through","Catches slightly","Snags or pulls","Cannot pass"],true)+
+    Radio("touchup","coat_before","Coat appearance under light",["Dull or dirty","Slightly dull","Clean, normal sheen","Bright, healthy shine"],true)+
+    Radio("touchup","mat_before","Matting",["None","Light tangles","Moderate mats","Severe mats"],true)+
+    (d.mat_before&&d.mat_before!=="None"?Multi("touchup","mat_loc","Where?",["Behind ears","Armpits","Belly","Back legs","Tail","Neck-collar area"]):"")
+  );
+  const svcOpts = ["Brushing","Ear cleaning","Eye/tear stain cleaning","Paw cleaning","Teeth brushing","Nail touch-up",...(isDeshed?["Deshedding"]:[])];
+  html += Section("Services performed","#1D9E75","#E1F5EE",
+    Multi("touchup","services","What did you do today?",svcOpts)+
+    Radio("touchup","incomplete","Anything you couldn't complete?",["No, all done","Yes"])+
+    (d.incomplete==="Yes"?TextArea("touchup","inc_detail","What and why?","Which task + reason..."):"")
+  );
+  html += Section("Hygiene — flag problems only","#185FA5","#E6F1FB",
+    Multi("touchup","hygiene","Any issues noticed?",["Ear wax or odour","Eye discharge","Tear staining moderate+","Paw grime or irritation","Teeth buildup","Body odour","Skin redness or flaking","Lump or bump"],"Nothing selected = all clear")+
+    ((d.hygiene||[]).length>0?TextArea("touchup","hyg_detail","Where and what does it look like?","Location + description...")+Radio("touchup","hyg_sev","Your call",["Worth monitoring","Needs senior review"]):"")
+  );
+  if(isDeshed&&(d.services||[]).includes("Deshedding")) html += Section("Deshedding","#BA7517","#FAEEDA",
+    Radio("touchup","shed_tool","Tool used",["Undercoat rake","Deshedding blade","Slicker brush","Comb"])+
+    Radio("touchup","shed_time","Time spent",["Under 5 min","5–10 min","10–15 min","15+ min"])+
+    Radio("touchup","shed_vol","Loose hair volume",["Heavy","Moderate","Light","Minimal"])+
+    Radio("touchup","undercoat","Undercoat feel — fingers through side/rump",["Very dense","Dense","Moderate","Light and airy"])
+  );
+  html += Section("Behaviour","#D85A30","#FAECE7",
+    Radio("touchup","behaviour","How was the pet?",["Very calm","Mostly calm","Unsettled","Difficult"],true)+
+    ((d.behaviour==="Unsettled"||d.behaviour==="Difficult")?TextArea("touchup","beh_detail","What triggered it?","Which task + what happened..."):"")
+  );
+  let deltaHtml = "";
+  if(d.comb_before&&d.comb_after) deltaHtml = `<div class="delta-box">Session delta — Comb: ${d.comb_before} → ${d.comb_after} | Look: ${d.coat_before||"—"} → ${d.coat_after||"—"}</div>`;
+  html += Section("After — coat check post-session","#0F6E56","#E1F5EE",
+    `<div style="font-size:12px;color:#085041;margin-bottom:12px;font-style:italic;">Now that you've finished, check the coat again.</div>`+
+    Radio("touchup","comb_after","Comb test — same spots as before",["Glides through","Catches slightly","Snags or pulls","Cannot pass"],true)+
+    Radio("touchup","coat_after","Coat appearance",["Dull or dirty","Slightly dull","Clean, normal sheen","Bright, healthy shine"],true)+
+    deltaHtml
+  );
+  html += Section("Photo after session","#534AB7","#EEEDFE",
+    PhotoUpload("touchup","photo","Photo of pet after session")+
+    `<div style="font-size:12px;color:var(--color-text-tertiary);margin-top:-8px;margin-bottom:8px;">Good light, side view, full body.</div>`
+  );
+  html += Section("Incident","#A32D2D","#FCEBEB",
+    Radio("touchup","incident","Anything unexpected happen?",["No","Yes"])+
+    (d.incident==="Yes"?TextArea("touchup","inc_what","What happened?","")+Radio("touchup","pet_inj","Pet injured (even minor)?",["No","Yes"])+Radio("touchup","grm_inj","Groomer injured?",["No","Yes"])+Radio("touchup","owner_inf","Owner informed?",["Yes","No","Not present"]):"")
+  );
+  html += `<button class="submit-btn" onclick="submitForm('touchup','Touch-up')" ${canSubmit?"":'disabled'}
+    style="background:${canSubmit?"#1D9E75":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
+    ${canSubmit?"Submit touch-up report":"Fill required fields + photo to submit"}</button>`;
+  return html;
+}
+
+function renderVan(){
+  const d = forms.van;
+  if(d.__submitted) return `<div class="success-screen">
+    <div class="success-icon">&#10003;</div>
+    <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Van session saved</h2>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Full report submitted.<br>View it in the Results tab.</p>
+    <button onclick="resetForm('van')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#185FA5;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New session</button>
+  </div>`;
+
+  const isDeshed = d.plan==="Hygiene + Deshedding";
+  const canSubmit = d.pet && d.groomer && photoURLs["van_photo_before"] && photoURLs["van_photo_after"];
+  let html = "";
+
+  html += Section("Session info","#185FA5","#E6F1FB",
+    TextInput("van","pet","Pet name","e.g., Bella",true)+
+    TextInput("van","breed","Breed","e.g., Golden Retriever",true)+
+    TextInput("van","groomer","Groomer name","Your name",true)+
+    Radio("van","plan","Plan type",["Hygiene","Hygiene + Deshedding"],true)+
+    Radio("van","owner_home","Owner home?",["Yes, owner","Yes, someone else","No"])
+  );
+  html += Section("Before photo","#D4537E","#FBEAF0", PhotoUpload("van","photo_before","Photo of pet BEFORE you start"));
+  html += Section("Before — coat check on arrival","#D4537E","#FBEAF0",
+    `<div style="font-size:12px;color:#993556;margin-bottom:12px;font-style:italic;">Record before any work.</div>`+
+    Radio("van","comb_before","Comb test — mid-back and one side",["Glides through","Catches slightly","Snags or pulls","Cannot pass"],true)+
+    Radio("van","coat_before","Coat appearance",["Dull or dirty","Slightly dull","Clean, normal sheen","Bright, healthy shine"],true)+
+    Radio("van","mat_before","Matting",["None","Light tangles","Moderate mats","Severe mats"],true)+
+    (d.mat_before&&d.mat_before!=="None"?Multi("van","mat_loc","Where?",["Behind ears","Armpits","Belly","Back legs","Tail","Neck-collar area"]):"")
+  );
+  const vanSvcs = ["Full wash","Coat mask/treatment","Brushing","Dematting",...(isDeshed?["Deshedding"]:[]),"Ear cleaning","Eye/tear stain cleaning","Teeth brushing","Nail trim/grind","Sanitary trim","Paw trim","Blow dry","Finishing spray"];
+  html += Section("Services performed","#185FA5","#E6F1FB",
+    Multi("van","services","What did you do?",vanSvcs)+
+    Radio("van","incomplete","Anything not completed?",["No, all done","Yes"])+
+    (d.incomplete==="Yes"?TextArea("van","inc_detail","What and why?",""):"")
+  );
+  html += Section("Products used","#185FA5","#E6F1FB",
+    Multi("van","products","Products",["Hydrating shampoo","Deshedding shampoo","Conditioning mask","Tear stain wipe","Finishing spray","Conditioning spray"])+
+    TextArea("van","prod_other","Other products not listed","Product name + how it was used...",2)
+  );
+  html += Section("Hygiene — flag problems only","#185FA5","#E6F1FB",
+    Multi("van","hygiene","Any issues?",["Ear wax or odour","Eye discharge","Tear staining moderate+","Paw grime or irritation","Teeth buildup","Body odour","Skin redness or flaking","Lump or bump"],"Nothing selected = all clear")+
+    ((d.hygiene||[]).length>0?TextArea("van","hyg_detail","Where and what?","")+Radio("van","hyg_sev","Severity",["Worth monitoring","Needs senior review"]):"")
+  );
+  html += Section("Post-wash skin check","#185FA5","#E6F1FB",
+    Radio("van","skin_post","Anything visible on the skin now that the coat is wet/blown?",["No","Yes"])+
+    (d.skin_post==="Yes"?TextArea("van","skin_detail","Where and what does it look like?",""):"")
+  );
+  if(isDeshed) html += Section("Deshedding","#BA7517","#FAEEDA",
+    Radio("van","shed_tool","Tool used",["Undercoat rake","Deshedding blade","Slicker brush","Comb"])+
+    Radio("van","shed_time","Time spent",["Under 5 min","5–10 min","10–15 min","15+ min"])+
+    Radio("van","shed_vol","Loose hair volume",["Heavy","Moderate","Light","Minimal"])+
+    Radio("van","undercoat","Undercoat feel after",["Very dense","Dense","Moderate","Light and airy"])
+  );
+  html += Section("Nails","#185FA5","#E6F1FB",
+    Radio("van","nails","Nail length after trim",["Good length","Still slightly long","Problematic"])+
+    (d.nails==="Problematic"?TextArea("van","nail_detail","Details",""):"")
+  );
+  html += Section("Behaviour","#D85A30","#FAECE7",
+    Radio("van","behaviour","How was the pet?",["Very calm","Mostly calm","Unsettled","Difficult"],true)+
+    ((d.behaviour==="Unsettled"||d.behaviour==="Difficult")?TextArea("van","beh_detail","What triggered it?",""):"")
+  );
+  let deltaHtml = "";
+  if(d.comb_before&&d.comb_after) deltaHtml = `<div class="delta-box">Session delta — Comb: ${d.comb_before} → ${d.comb_after} | Look: ${d.coat_before||"—"} → ${d.coat_after||"—"}</div>`;
+  html += Section("After — coat check post-service","#0F6E56","#E1F5EE",
+    `<div style="font-size:12px;color:#085041;margin-bottom:12px;font-style:italic;">After the full service is complete.</div>`+
+    Radio("van","comb_after","Comb test",["Glides through","Catches slightly","Snags or pulls","Cannot pass"],true)+
+    Radio("van","coat_after","Coat appearance",["Dull or dirty","Slightly dull","Clean, normal sheen","Bright, healthy shine"],true)+
+    deltaHtml
+  );
+  html += Section("Forward planning","#534AB7","#EEEDFE",
+    Multi("van","focus","Focus for next period (pick 1–2)",["Matting","Tear stains","Skin monitoring","Deshedding","Coat hydration","Behaviour","Nails","General maintenance"])+
+    TextArea("van","senior_note","Anything for the senior groomer?","Optional...",2)
+  );
+  html += Section("After photo","#0F6E56","#E1F5EE",
+    PhotoUpload("van","photo_after","Photo of pet AFTER session")+
+    `<div style="font-size:12px;color:var(--color-text-tertiary);margin-top:-8px;margin-bottom:8px;">Same angle as the before photo if possible.</div>`
+  );
+  html += Section("Incident","#A32D2D","#FCEBEB",
+    Radio("van","incident","Anything unexpected happen?",["No","Yes"])+
+    (d.incident==="Yes"?TextArea("van","inc_what","What happened?","")+Radio("van","pet_inj","Pet injured?",["No","Yes"])+Radio("van","grm_inj","Groomer injured?",["No","Yes"])+Radio("van","owner_inf","Owner informed?",["Yes","No","Not present"]):"")
+  );
+  html += `<button class="submit-btn" onclick="submitForm('van','Van maintenance')" ${canSubmit?"":'disabled'}
+    style="background:${canSubmit?"#185FA5":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
+    ${canSubmit?"Submit van maintenance report":"Fill required fields + both photos to submit"}</button>`;
+  return html;
+}
+
+function renderSubmissions(){
+  const subs = JSON.parse(localStorage.getItem("groomSubs")||"[]");
+  if(!subs.length) return `<div style="padding:40px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:12px;opacity:0.4;">&#128203;</div>
+    <p style="color:var(--color-text-secondary);font-size:14px;">No submissions yet. Fill in a form and it will appear here.</p>
+  </div>`;
+
+  const typeColors = {"Foundational":"#534AB7","Touch-up":"#1D9E75","Van maintenance":"#185FA5"};
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <span style="font-size:14px;color:var(--color-text-secondary);">${subs.length} submission${subs.length!==1?"s":""}</span>
+    <button onclick="clearSubs()" style="padding:6px 14px;border-radius:16px;border:1px solid var(--color-border-tertiary);background:none;color:#A32D2D;font-size:12px;font-weight:500;cursor:pointer;">Clear all</button>
+  </div>`;
+
+  [...subs].reverse().forEach((s)=>{
+    const c = typeColors[s.formType]||"#888";
+    const d = s.data;
+    const time = new Date(s.timestamp);
+    let details = `<div><strong>Breed:</strong> ${d.breed||"—"} &nbsp; <strong>Groomer:</strong> ${d.groomer||"—"}</div>`;
+    if(d.plan) details += `<div><strong>Plan:</strong> ${d.plan}</div>`;
+    if(d.comb_before) details += `<div><strong>Comb before:</strong> ${d.comb_before}${d.comb_after?" &rarr; "+d.comb_after:""}</div>`;
+    if(d.comb) details += `<div><strong>Comb test:</strong> ${d.comb}</div>`;
+    if(d.coat_look) details += `<div><strong>Coat look:</strong> ${d.coat_look}</div>`;
+    if(d.matting) details += `<div><strong>Matting:</strong> ${d.matting}${(d.mat_loc||[]).length?" ("+d.mat_loc.join(", ")+")" :""}</div>`;
+    if((d.hygiene_issues||[]).length) details += `<div><strong>Hygiene issues:</strong> ${d.hygiene_issues.join(", ")}</div>`;
+    if((d.hygiene||[]).length) details += `<div><strong>Hygiene issues:</strong> ${d.hygiene.join(", ")}</div>`;
+    if((d.services||[]).length) details += `<div><strong>Services:</strong> ${d.services.join(", ")}</div>`;
+    if(d.behaviour) details += `<div><strong>Behaviour:</strong> ${d.behaviour}${d.beh_detail?" — "+d.beh_detail:""}</div>`;
+    if(d.nails) details += `<div><strong>Nails:</strong> ${d.nails}</div>`;
+    if(d.target) details += `<div><strong>Target:</strong> ${d.target}</div>`;
+    if((d.focus||[]).length) details += `<div><strong>Next focus:</strong> ${d.focus.join(", ")}</div>`;
+    if(d.incident==="Yes") details += `<div style="color:#A32D2D;"><strong>Incident:</strong> ${d.inc_what||""}</div>`;
+    if(d.senior_note) details += `<div><strong>Note for senior:</strong> ${d.senior_note}</div>`;
+
+    html += `<div style="margin-bottom:16px;border-radius:12px;border:1px solid var(--color-border-tertiary);overflow:hidden;">
+      <div style="padding:10px 14px;background:var(--color-background-secondary);display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span style="padding:3px 10px;border-radius:12px;background:${c};color:#fff;font-size:11px;font-weight:500;margin-right:8px;">${s.formType}</span>
+          <span style="font-size:14px;font-weight:500;color:var(--color-text-primary);">${d.pet||"—"}</span>
+        </div>
+        <span style="font-size:12px;color:var(--color-text-tertiary);">${time.toLocaleDateString()} ${time.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>
+      </div>
+      <div style="padding:14px;font-size:13px;color:var(--color-text-secondary);line-height:1.6;">${details}</div>
+    </div>`;
+  });
+  return html;
+}
+
+function clearSubs(){ localStorage.removeItem("groomSubs"); renderForm(); }
+
+function renderForm(){
+  const area = document.getElementById("formArea");
+  if(currentTab==="foundational") area.innerHTML = renderFoundational();
+  else if(currentTab==="touchup") area.innerHTML = renderTouchup();
+  else if(currentTab==="van") area.innerHTML = renderVan();
+  else area.innerHTML = renderSubmissions();
+}
+
+renderTabBar();
+renderForm();
+</script>
+</body>
+</html>
