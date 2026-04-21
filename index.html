@@ -54,6 +54,10 @@
   .delta-box { padding: 12px; border-radius: 10px; background: #EEEDFE; font-size: 13px; color: #534AB7; font-weight: 500; margin-bottom: 8px; }
   .success-screen { text-align: center; padding: 40px; }
   .success-icon { font-size: 48px; margin-bottom: 16px; }
+  .saving-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999; }
+  .saving-box { background:var(--color-background-primary);border-radius:16px;padding:32px;text-align:center;max-width:280px; }
+  .saving-spinner { width:40px;height:40px;border:3px solid var(--color-border-tertiary);border-top-color:#534AB7;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -63,6 +67,12 @@
 </div>
 
 <script>
+// ─── AIRTABLE CONFIG ───────────────────────────────────────────────
+const AIRTABLE_TOKEN = "patAyDcxTGBV92rtq.a6a5894c0f47b676086093ebc68c8f9e829071a25048dd241f6d559c77f34f6f";
+const AIRTABLE_BASE_ID = "appbla2WrAPk6seXT";
+const QUESTIONNAIRES_TABLE = "tblqZiJuTUNbqoptR";
+// ──────────────────────────────────────────────────────────────────
+
 const TABS = [
   { id:"foundational", label:"Foundation", color:"#534AB7" },
   { id:"touchup",      label:"Touch-up",   color:"#1D9E75" },
@@ -169,17 +179,79 @@ function handlePhoto(formKey, field, input){
   updateSubmitBtn(formKey);
 }
 
-function saveSubmission(formType, data){
+function showSaving(){
+  const el = document.createElement("div");
+  el.className = "saving-overlay";
+  el.id = "savingOverlay";
+  el.innerHTML = `<div class="saving-box">
+    <div class="saving-spinner"></div>
+    <div style="font-size:15px;font-weight:500;color:var(--color-text-primary);">Saving to Airtable...</div>
+    <div style="font-size:13px;color:var(--color-text-secondary);margin-top:6px;">Please wait</div>
+  </div>`;
+  document.body.appendChild(el);
+}
+
+function hideSaving(){ const el = document.getElementById("savingOverlay"); if(el) el.remove(); }
+
+async function saveToAirtable(formType, data){
+  // Build a readable summary of all form fields
+  const lines = [];
+  for(const [key, val] of Object.entries(data)){
+    if(key==="__submitted") continue;
+    if(Array.isArray(val)) lines.push(`${key}: ${val.join(", ")}`);
+    else if(val) lines.push(`${key}: ${val}`);
+  }
+  const summary = lines.join("\n");
+  const title = `${formType} — ${data.pet||"Unknown pet"} — ${new Date().toLocaleDateString()}`;
+
+  const payload = {
+    fields: {
+      "fld7DfcCNsFnXf8jH": title,
+      "fld0KkqZYiBoQ4kR7": "Completed",
+      "fldJ9txpb878bmnEI": new Date().toISOString().split("T")[0],
+      "flddUyGK9cWl0G9Xv": `Form: ${formType} | Pet: ${data.pet||"—"} | Groomer: ${data.groomer||"—"}`
+    }
+  };
+
+  const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${AIRTABLE_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if(!res.ok){
+    const err = await res.json();
+    throw new Error(err.error?.message || "Airtable save failed");
+  }
+  return res.json();
+}
+
+function saveLocalBackup(formType, data){
   const subs = JSON.parse(localStorage.getItem("groomSubs")||"[]");
   subs.push({ formType, data: JSON.parse(JSON.stringify(data)), timestamp: new Date().toISOString() });
   localStorage.setItem("groomSubs", JSON.stringify(subs));
 }
 
-function submitForm(formKey, formType){
-  saveSubmission(formType, forms[formKey]);
-  forms[formKey] = { __submitted: true };
-  photoURLs = Object.fromEntries(Object.entries(photoURLs).filter(([k])=>!k.startsWith(formKey+"_")));
-  renderForm();
+async function submitForm(formKey, formType){
+  showSaving();
+  try {
+    await saveToAirtable(formType, forms[formKey]);
+    saveLocalBackup(formType, forms[formKey]);
+    hideSaving();
+    forms[formKey] = { __submitted: true };
+    photoURLs = Object.fromEntries(Object.entries(photoURLs).filter(([k])=>!k.startsWith(formKey+"_")));
+    renderForm();
+  } catch(err) {
+    hideSaving();
+    // Still save locally even if Airtable fails
+    saveLocalBackup(formType, forms[formKey]);
+    alert("Saved locally but Airtable sync failed: " + err.message + "\n\nCheck your token in the Results tab.");
+    forms[formKey] = { __submitted: true };
+    renderForm();
+  }
 }
 
 function resetForm(formKey){ forms[formKey] = {}; renderForm(); }
@@ -187,9 +259,9 @@ function resetForm(formKey){ forms[formKey] = {}; renderForm(); }
 function renderFoundational(){
   const d = forms.foundational;
   if(d.__submitted) return `<div class="success-screen">
-    <div class="success-icon">&#10003;</div>
+    <div class="success-icon">✓</div>
     <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Assessment saved</h2>
-    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Foundational report submitted.<br>View it in the Results tab.</p>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Foundational report submitted to Airtable.<br>View it in the Results tab.</p>
     <button onclick="resetForm('foundational')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#534AB7;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New assessment</button>
   </div>`;
 
@@ -251,9 +323,9 @@ function renderFoundational(){
 function renderTouchup(){
   const d = forms.touchup;
   if(d.__submitted) return `<div class="success-screen">
-    <div class="success-icon">&#10003;</div>
+    <div class="success-icon">✓</div>
     <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Touch-up saved</h2>
-    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Session report submitted.<br>View it in the Results tab.</p>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Session report submitted to Airtable.<br>View it in the Results tab.</p>
     <button onclick="resetForm('touchup')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New session</button>
   </div>`;
 
@@ -320,14 +392,14 @@ function renderTouchup(){
 function renderVan(){
   const d = forms.van;
   if(d.__submitted) return `<div class="success-screen">
-    <div class="success-icon">&#10003;</div>
+    <div class="success-icon">✓</div>
     <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Van session saved</h2>
-    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Full report submitted.<br>View it in the Results tab.</p>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Full report submitted to Airtable.<br>View it in the Results tab.</p>
     <button onclick="resetForm('van')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#185FA5;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New session</button>
   </div>`;
 
   const isDeshed = d.plan==="Hygiene + Deshedding";
-  const canSubmit = d.pet && d.groomer && photoURLs["van_photo_before"] && photoURLs["van_photo_after"];
+  const canSubmit = d.van && d.groomer && photoURLs["van_photo_before"] && photoURLs["van_photo_after"];
   let html = "";
 
   html += Section("Session info","#185FA5","#E6F1FB",
@@ -406,7 +478,7 @@ function renderVan(){
 function renderSubmissions(){
   const subs = JSON.parse(localStorage.getItem("groomSubs")||"[]");
   if(!subs.length) return `<div style="padding:40px;text-align:center;">
-    <div style="font-size:40px;margin-bottom:12px;opacity:0.4;">&#128203;</div>
+    <div style="font-size:40px;margin-bottom:12px;opacity:0.4;">📋</div>
     <p style="color:var(--color-text-secondary);font-size:14px;">No submissions yet. Fill in a form and it will appear here.</p>
   </div>`;
 
@@ -422,7 +494,7 @@ function renderSubmissions(){
     const time = new Date(s.timestamp);
     let details = `<div><strong>Breed:</strong> ${d.breed||"—"} &nbsp; <strong>Groomer:</strong> ${d.groomer||"—"}</div>`;
     if(d.plan) details += `<div><strong>Plan:</strong> ${d.plan}</div>`;
-    if(d.comb_before) details += `<div><strong>Comb before:</strong> ${d.comb_before}${d.comb_after?" &rarr; "+d.comb_after:""}</div>`;
+    if(d.comb_before) details += `<div><strong>Comb before:</strong> ${d.comb_before}${d.comb_after?" → "+d.comb_after:""}</div>`;
     if(d.comb) details += `<div><strong>Comb test:</strong> ${d.comb}</div>`;
     if(d.coat_look) details += `<div><strong>Coat look:</strong> ${d.coat_look}</div>`;
     if(d.matting) details += `<div><strong>Matting:</strong> ${d.matting}${(d.mat_loc||[]).length?" ("+d.mat_loc.join(", ")+")" :""}</div>`;
@@ -481,3 +553,4 @@ renderForm();
 </script>
 </body>
 </html>
+  
