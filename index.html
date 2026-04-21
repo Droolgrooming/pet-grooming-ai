@@ -67,10 +67,8 @@
 </div>
 
 <script>
-// ─── AIRTABLE CONFIG ───────────────────────────────────────────────
-const AIRTABLE_TOKEN = "patAyDcxTGBV92rtq.a6a5894c0f47b676086093ebc68c8f9e829071a25048dd241f6d559c77f34f6f";
-const AIRTABLE_BASE_ID = "appbla2WrAPk6seXT";
-const QUESTIONNAIRES_TABLE = "tblqZiJuTUNbqoptR";
+// ─── API CONFIG ────────────────────────────────────────────────────
+const API_ENDPOINT = "/api/submit";
 // ──────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -194,37 +192,14 @@ function showSaving(){
 function hideSaving(){ const el = document.getElementById("savingOverlay"); if(el) el.remove(); }
 
 async function saveToAirtable(formType, data){
-  // Build a readable summary of all form fields
-  const lines = [];
-  for(const [key, val] of Object.entries(data)){
-    if(key==="__submitted") continue;
-    if(Array.isArray(val)) lines.push(`${key}: ${val.join(", ")}`);
-    else if(val) lines.push(`${key}: ${val}`);
-  }
-  const summary = lines.join("\n");
-  const title = `${formType} — ${data.pet||"Unknown pet"} — ${new Date().toLocaleDateString()}`;
-
-  const payload = {
-    fields: {
-      "fld7DfcCNsFnXf8jH": title,
-      "fld0KkqZYiBoQ4kR7": "Completed",
-      "fldJ9txpb878bmnEI": new Date().toISOString().split("T")[0],
-      "flddUyGK9cWl0G9Xv": `Form: ${formType} | Pet: ${data.pet||"—"} | Groomer: ${data.groomer||"—"}`
-    }
-  };
-
-  const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}`, {
+  const res = await fetch("/api/submit", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${AIRTABLE_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ formType, data })
   });
-
   if(!res.ok){
     const err = await res.json();
-    throw new Error(err.error?.message || "Airtable save failed");
+    throw new Error(err.error?.message || "Save failed");
   }
   return res.json();
 }
