@@ -10,16 +10,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { formType, data, photos } = req.body;
-  const title = `${formType} — ${data.pet || 'Unknown'} — ${new Date().toLocaleDateString()}`;
-  const today = new Date().toISOString().split('T')[0];
+  if (!formType || !data) return res.status(400).json({ error: 'Missing formType or data' });
 
-  // Get host for report URL
+  const title = `${formType} — ${data.pet || 'Unknown'} — ${new Date().toLocaleDateString('en-GB')}`;
+  const today = new Date().toISOString().split('T')[0];
   const host = req.headers.host || 'project-3kvtp.vercel.app';
   const protocol = host.includes('localhost') ? 'http' : 'https';
 
   try {
-    // First create the record to get its ID
-    const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}`, {
+    const airtableRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -35,13 +34,12 @@ module.exports = async function handler(req, res) {
       })
     });
 
-    const result = await response.json();
-    if (!response.ok) return res.status(400).json({ error: result });
+    const result = await airtableRes.json();
+    if (!airtableRes.ok) return res.status(400).json({ error: result });
 
     const recordId = result.id;
     const reportUrl = `${protocol}://${host}/api/report?id=${recordId}`;
 
-    // Update record with the report URL
     await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}/${recordId}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
