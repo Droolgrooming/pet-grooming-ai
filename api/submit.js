@@ -9,16 +9,29 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { formType, data, photos } = req.body;
-  if (!formType || !data) return res.status(400).json({ error: 'Missing formType or data' });
-
-  const title = `${formType} — ${data.pet || 'Unknown'} — ${new Date().toLocaleDateString('en-GB')}`;
-  const today = new Date().toISOString().split('T')[0];
-  const host = req.headers.host || 'project-3kvtp.vercel.app';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-
   try {
-    const airtableRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}`, {
+    const { formType, data } = req.body;
+    if (!formType || !data) return res.status(400).json({ error: 'Missing formType or data' });
+
+    const title = `${formType} — ${data.pet || 'Unknown'} — ${new Date().toLocaleDateString('en-GB')}`;
+    const today = new Date().toISOString().split('T')[0];
+    const host = req.headers.host || 'project-3kvtp.vercel.app';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+
+    // Strip photos from data to keep JSON small
+    const cleanData = { ...data };
+    const photoSummary = [];
+    for (const key of Object.keys(cleanData)) {
+      if (key.startsWith('_photo_')) {
+        photoSummary.push(key.replace('_photo_', ''));
+        delete cleanData[key];
+      }
+    }
+
+    const dataJSON = JSON.stringify(cleanData);
+
+    // Step 1: create the Airtable record (without photos, just form data)
+    const createRes = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -26,20 +39,22 @@ module.exports = async function handler(req, res) {
           fld7DfcCNsFnXf8jH: title,
           fld0KkqZYiBoQ4kR7: 'Completed',
           fldJ9txpb878bmnEI: today,
-          fldOiH9bAL6dX1kVU: JSON.stringify(data),
-          fldQj73GyFTkP4DrB: JSON.stringify(photos || []),
+          fldOiH9bAL6dX1kVU: dataJSON.substring(0, 95000),
           fld74QIUYGa1IQsT8: data.groomer || '',
           fldzVNW1nYk1yekvR: formType
         }
       })
     });
 
-    const result = await airtableRes.json();
-    if (!airtableRes.ok) return res.status(400).json({ error: result });
+    const createResult = await createRes.json();
+    if (!createRes.ok) {
+      return res.status(400).json({ error: 'Airtable create failed', details: createResult });
+    }
 
-    const recordId = result.id;
+    const recordId = createResult.id;
     const reportUrl = `${protocol}://${host}/api/report?id=${recordId}`;
 
+    // Step 2: update record with the report URL
     await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}/${recordId}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
@@ -48,6 +63,6 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ success: true, recordId, reportUrl });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 };
