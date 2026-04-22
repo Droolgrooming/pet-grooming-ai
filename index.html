@@ -239,7 +239,7 @@ function renderFoundational(){
   </div>`;
 
   const isDeshed = d.plan==="Hygiene + Deshedding";
-  const canSubmit = d.pet && d.groomer && photoURLs["foundational_photo1"];
+  const canSubmit = d.pet && d.groomer;
   let html = "";
 
   html += Section("Session info","#534AB7","#EEEDFE",
@@ -289,7 +289,7 @@ function renderFoundational(){
   );
   html += `<button id="submitBtn_foundational" class="submit-btn" onclick="submitForm('foundational','Foundational')" ${canSubmit?"":'disabled'}
     style="background:${canSubmit?"#534AB7":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
-    ${canSubmit?"Save foundational assessment":"Fill required fields + photo to submit"}</button>`;
+    ${canSubmit?"Save foundational assessment":"Fill required fields (pet + groomer)"}</button>`;
   return html;
 }
 
@@ -303,7 +303,7 @@ function renderTouchup(){
   </div>`;
 
   const isDeshed = d.plan==="Hygiene + Deshedding";
-  const canSubmit = d.pet && d.groomer && photoURLs["touchup_photo"];
+  const canSubmit = d.pet && d.groomer;
   let html = "";
 
   html += Section("Session info","#1D9E75","#E1F5EE",
@@ -358,7 +358,7 @@ function renderTouchup(){
   );
   html += `<button id="submitBtn_touchup" class="submit-btn" onclick="submitForm('touchup','Touch-up')" ${canSubmit?"":'disabled'}
     style="background:${canSubmit?"#1D9E75":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
-    ${canSubmit?"Submit touch-up report":"Fill required fields + photo to submit"}</button>`;
+    ${canSubmit?"Submit touch-up report":"Fill required fields (pet + groomer)"}</button>`;
   return html;
 }
 
@@ -372,7 +372,7 @@ function renderVan(){
   </div>`;
 
   const isDeshed = d.plan==="Hygiene + Deshedding";
-  const canSubmit = d.van && d.groomer && photoURLs["van_photo_before"] && photoURLs["van_photo_after"];
+  const canSubmit = d.pet && d.groomer;
   let html = "";
 
   html += Section("Session info","#185FA5","#E6F1FB",
@@ -444,7 +444,7 @@ function renderVan(){
   );
   html += `<button id="submitBtn_van" class="submit-btn" onclick="submitForm('van','Van maintenance')" ${canSubmit?"":'disabled'}
     style="background:${canSubmit?"#185FA5":"var(--color-border-tertiary)"};color:${canSubmit?"#fff":"var(--color-text-tertiary)"};cursor:${canSubmit?"pointer":"not-allowed"};">
-    ${canSubmit?"Submit van maintenance report":"Fill required fields + both photos to submit"}</button>`;
+    ${canSubmit?"Submit van maintenance report":"Fill required fields (pet + groomer)"}</button>`;
   return html;
 }
 
@@ -501,11 +501,11 @@ function updateSubmitBtn(formKey){
   const btn = document.getElementById("submitBtn_"+formKey);
   if(!btn) return;
   let canSubmit = false;
-  if(formKey==="foundational") canSubmit = !!(forms.foundational.pet && forms.foundational.groomer && photoURLs["foundational_photo1"]);
-  else if(formKey==="touchup") canSubmit = !!(forms.touchup.pet && forms.touchup.groomer && photoURLs["touchup_photo"]);
-  else if(formKey==="van") canSubmit = !!(forms.van.pet && forms.van.groomer && photoURLs["van_photo_before"] && photoURLs["van_photo_after"]);
+  if(formKey==="foundational") canSubmit = !!(forms.foundational.pet && forms.foundational.groomer);
+  else if(formKey==="touchup") canSubmit = !!(forms.touchup.pet && forms.touchup.groomer);
+  else if(formKey==="van") canSubmit = !!(forms.van.pet && forms.van.groomer);
   const colors = { foundational:"#534AB7", touchup:"#1D9E75", van:"#185FA5" };
-  const labels = { foundational:["Save foundational assessment","Fill required fields + photo to submit"], touchup:["Submit touch-up report","Fill required fields + photo to submit"], van:["Submit van maintenance report","Fill required fields + both photos to submit"] };
+  const labels = { foundational:["Save foundational assessment","Fill required fields (pet + groomer)"], touchup:["Submit touch-up report","Fill required fields (pet + groomer)"], van:["Submit van maintenance report","Fill required fields (pet + groomer)"] };
   btn.disabled = !canSubmit;
   btn.style.background = canSubmit ? colors[formKey] : "var(--color-border-tertiary)";
   btn.style.color = canSubmit ? "#fff" : "var(--color-text-tertiary)";
