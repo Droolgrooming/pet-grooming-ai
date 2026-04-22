@@ -3,8 +3,11 @@ const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 const QUESTIONNAIRES_TABLE = 'tblqZiJuTUNbqoptR';
 
 module.exports = async function handler(req, res) {
-  const { id } = req.query;
-  if (!id) return res.status(400).send('Missing report ID');
+  const { id } = req.query || {};
+  if (!id) {
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(400).send('<h1>Missing report ID</h1>');
+  }
 
   try {
     const response = await fetch(
@@ -12,154 +15,222 @@ module.exports = async function handler(req, res) {
       { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` } }
     );
     const record = await response.json();
-    if (!response.ok) return res.status(404).send('Report not found');
+    
+    if (!response.ok) {
+      res.setHeader('Content-Type', 'text/html');
+      return res.status(404).send(`<h1>Report not found</h1><pre>${JSON.stringify(record, null, 2)}</pre>`);
+    }
 
-    const fields = record.fields;
+    const fields = record.fields || {};
+    const rawData = fields['fldOiH9bAL6dX1kVU'] || fields['Full Answers'] || '';
+    const formType = fields['fldzVNW1nYk1yekvR'] || fields['Form Type'] || 'Session';
+    const groomer = fields['fld74QIUYGa1IQsT8'] || fields['Groomer'] || '';
+    const dateSubmitted = fields['fldJ9txpb878bmnEI'] || fields['Date Submitted'] || '';
+
     let data = {};
-    let photos = [];
-    try { data = JSON.parse(fields['fldOiH9bAL6dX1kVU'] || '{}'); } catch(e) {}
-    try { photos = JSON.parse(fields['fldQj73GyFTkP4DrB'] || '[]'); } catch(e) {}
-
-    const formType = fields['fldzVNW1nYk1yekvR'] || 'Session';
+    let parseError = null;
+    if (rawData) {
+      try { 
+        data = JSON.parse(rawData); 
+      } catch(e) { 
+        parseError = e.message;
+        data = { _raw: rawData };
+      }
+    }
 
     res.setHeader('Content-Type', 'text/html');
-    res.send(generateHTML(data, formType, photos, fields));
+    res.send(generateHTML(data, formType, groomer, dateSubmitted, fields, parseError));
   } catch (err) {
-    res.status(500).send('Error: ' + err.message);
+    res.setHeader('Content-Type', 'text/html');
+    res.status(500).send(`<h1>Error loading report</h1><pre>${err.message}\n${err.stack}</pre>`);
   }
 };
 
-function badge(label, value, color) {
-  if (!value || (Array.isArray(value) && !value.length)) return '';
-  const c = { purple:{bg:'#EEEDFE',text:'#534AB7',border:'#AFA9EC'}, green:{bg:'#E1F5EE',text:'#0F6E56',border:'#5DCAA5'}, blue:{bg:'#E6F1FB',text:'#185FA5',border:'#85B7EB'}, amber:{bg:'#FAEEDA',text:'#854F0B',border:'#EF9F27'}, red:{bg:'#FCEBEB',text:'#A32D2D',border:'#F09595'}, gray:{bg:'#F1EFE8',text:'#5F5E5A',border:'#B4B2A9'}, pink:{bg:'#FBEAF0',text:'#993556',border:'#ED93B1'} }[color] || {bg:'#F1EFE8',text:'#5F5E5A',border:'#B4B2A9'};
-  return `<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:${c.text};margin-bottom:4px;opacity:0.7;">${label}</div><div style="display:inline-block;padding:6px 12px;border-radius:20px;background:${c.bg};color:${c.text};border:1px solid ${c.border};font-size:13px;font-weight:500;">${Array.isArray(value)?value.join(' · '):value}</div></div>`;
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function sec(title, color, content) {
-  if (!content.trim()) return '';
-  const c = { purple:{b:'#534AB7',bg:'#EEEDFE',t:'#534AB7'}, green:{b:'#1D9E75',bg:'#E1F5EE',t:'#1D9E75'}, blue:{b:'#185FA5',bg:'#E6F1FB',t:'#185FA5'}, amber:{b:'#BA7517',bg:'#FAEEDA',t:'#BA7517'}, red:{b:'#D85A30',bg:'#FAECE7',t:'#D85A30'}, gray:{b:'#888780',bg:'#F1EFE8',t:'#5F5E5A'}, pink:{b:'#D4537E',bg:'#FBEAF0',t:'#D4537E'} }[color] || {b:'#888780',bg:'#F1EFE8',t:'#5F5E5A'};
-  return `<div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,0.08);"><div style="padding:10px 16px;background:${c.bg};border-bottom:2px solid ${c.b};"><span style="font-size:12px;font-weight:600;color:${c.t};">${title}</span></div><div style="padding:16px;background:#fff;">${content}</div></div>`;
+function row(label, value, color) {
+  if (value === null || value === undefined || value === '' || (Array.isArray(value) && !value.length)) return '';
+  const displayValue = Array.isArray(value) ? value.join(', ') : String(value);
+  return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0ede8;gap:12px;">
+    <div style="font-size:13px;color:#5a5a56;flex-shrink:0;font-weight:500;">${esc(label)}</div>
+    <div style="font-size:13px;color:#1a1a18;text-align:right;">${esc(displayValue)}</div>
+  </div>`;
 }
 
-function chips(items, color) {
-  if (!items || !items.length) return '';
-  const c = { green:{bg:'#E1F5EE',text:'#0F6E56',border:'#5DCAA5'}, amber:{bg:'#FAEEDA',text:'#854F0B',border:'#EF9F27'}, purple:{bg:'#EEEDFE',text:'#534AB7',border:'#AFA9EC'} }[color] || {bg:'#F1EFE8',text:'#5F5E5A',border:'#B4B2A9'};
-  return `<div style="display:flex;flex-wrap:wrap;gap:8px;">${items.map(s=>`<span style="padding:5px 12px;border-radius:16px;background:${c.bg};color:${c.text};border:1px solid ${c.border};font-size:12px;font-weight:500;">${s}</span>`).join('')}</div>`;
+function section(title, color, rows) {
+  const nonEmpty = rows.filter(r => r && r.length > 0);
+  if (!nonEmpty.length) return '';
+  const colors = {
+    purple: { border: '#534AB7', bg: '#EEEDFE', text: '#534AB7' },
+    green:  { border: '#1D9E75', bg: '#E1F5EE', text: '#0F6E56' },
+    blue:   { border: '#185FA5', bg: '#E6F1FB', text: '#185FA5' },
+    amber:  { border: '#BA7517', bg: '#FAEEDA', text: '#854F0B' },
+    red:    { border: '#D85A30', bg: '#FAECE7', text: '#A32D2D' },
+    gray:   { border: '#888780', bg: '#F1EFE8', text: '#5F5E5A' },
+    pink:   { border: '#D4537E', bg: '#FBEAF0', text: '#993556' },
+  };
+  const c = colors[color] || colors.gray;
+  return `<div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,0.08);background:#fff;">
+    <div style="padding:10px 16px;background:${c.bg};border-bottom:2px solid ${c.border};">
+      <span style="font-size:12px;font-weight:600;color:${c.text};letter-spacing:0.02em;">${title}</span>
+    </div>
+    <div style="padding:4px 16px;">${nonEmpty.join('')}</div>
+  </div>`;
 }
 
-function note(text) {
+function note(label, text) {
   if (!text) return '';
-  return `<div style="font-size:13px;color:#5a5a56;background:#f5f5f4;padding:10px 12px;border-radius:8px;margin-top:8px;line-height:1.5;">${text}</div>`;
+  return `<div style="padding:10px 0;border-bottom:1px solid #f0ede8;">
+    <div style="font-size:13px;color:#5a5a56;font-weight:500;margin-bottom:6px;">${esc(label)}</div>
+    <div style="font-size:13px;color:#1a1a18;line-height:1.5;background:#f9f9f7;padding:10px;border-radius:8px;">${esc(text)}</div>
+  </div>`;
 }
 
-function generateHTML(data, formType, photos, fields) {
+function generateHTML(d, formType, groomer, dateSubmitted, fields, parseError) {
   const isFound = formType === 'Foundational';
-  const typeColor = isFound ? '#534AB7' : formType === 'Touch-up' ? '#1D9E75' : '#185FA5';
-  const typeBg = isFound ? '#EEEDFE' : formType === 'Touch-up' ? '#E1F5EE' : '#E6F1FB';
-
-  let photoHTML = '';
-  if (photos && photos.length) {
-    photoHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">` +
-      photos.map(p => `<div><img src="${p.url}" style="width:100%;border-radius:10px;object-fit:cover;max-height:240px;display:block;"/><div style="font-size:11px;color:#9a9a94;margin-top:4px;text-align:center;">${p.label}</div></div>`).join('') +
-      `</div>`;
-  }
-
-  const hygieneIssues = data.hygiene_issues || data.hygiene || [];
+  const isTouch = formType === 'Touch-up';
+  const typeColor = isFound ? '#534AB7' : isTouch ? '#1D9E75' : '#185FA5';
+  const typeBg = isFound ? '#EEEDFE' : isTouch ? '#E1F5EE' : '#E6F1FB';
 
   let sections = '';
 
-  // Coat
-  let coat = badge('Comb test (before)', data.comb_before || data.comb, 'pink') +
-    (data.comb_after ? badge('Comb test (after)', data.comb_after, 'green') : '') +
-    badge('Coat look (before)', data.coat_before || data.coat_look, 'pink') +
-    (data.coat_after ? badge('Coat look (after)', data.coat_after, 'green') : '') +
-    badge('Matting', data.matting || data.mat_before, 'amber') +
-    ((data.mat_loc||[]).length ? badge('Matting locations', data.mat_loc, 'amber') : '') +
-    note(data.coat_notes);
-  sections += sec('Coat condition', isFound ? 'green' : 'pink', coat);
+  if (parseError) {
+    sections += `<div style="background:#FCEBEB;color:#A32D2D;padding:16px;border-radius:12px;margin-bottom:16px;">
+      <strong>Data parse error:</strong> ${esc(parseError)}<br><br>
+      <strong>Raw data:</strong><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;">${esc(d._raw || '')}</pre>
+    </div>`;
+  }
+
+  sections += section('Session info', 'purple', [
+    row('Pet name', d.pet),
+    row('Breed', d.breed),
+    row('Age', d.age),
+    row('Owner', d.owner),
+    row('Groomer', d.groomer || groomer),
+    row('Plan type', d.plan),
+    row('Owner home?', d.owner_home),
+  ]);
+
+  // Coat condition (before)
+  sections += section('Coat — before', 'pink', [
+    row('Comb test', d.comb_before || d.comb),
+    row('Coat appearance', d.coat_before || d.coat_look),
+    row('Matting', d.matting || d.mat_before),
+    row('Matting locations', d.mat_loc),
+    note('Coat notes', d.coat_notes),
+  ]);
+
+  // Coat condition (after)
+  sections += section('Coat — after', 'green', [
+    row('Comb test', d.comb_after),
+    row('Coat appearance', d.coat_after),
+  ]);
 
   // Services
-  if ((data.services||[]).length) {
-    let svc = chips(data.services, 'green');
-    if (data.incomplete === 'Yes' && data.inc_detail) svc += `<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:#FCEBEB;color:#A32D2D;font-size:13px;"><strong>Not completed:</strong> ${data.inc_detail}</div>`;
-    sections += sec('Services performed', 'green', svc);
-  }
+  sections += section('Services performed', 'green', [
+    row('Services', d.services),
+    row('Anything not completed?', d.incomplete),
+    note('Not completed details', d.inc_detail),
+  ]);
 
   // Hygiene
-  let hyg = hygieneIssues.length
-    ? chips(hygieneIssues, 'amber') + note(data.hygiene_detail || data.hyg_detail) + badge('Severity', data.hyg_sev, data.hyg_sev === 'Needs senior review' ? 'red' : 'amber')
-    : `<div style="color:#0F6E56;font-size:13px;font-weight:500;">✓ All clear — no issues noted</div>`;
-  sections += sec('Hygiene', 'blue', hyg);
+  const hygieneIssues = d.hygiene_issues || d.hygiene || [];
+  sections += section('Hygiene', 'blue', [
+    hygieneIssues.length ? row('Issues noted', hygieneIssues) : row('Hygiene check', '✓ All clear — no issues'),
+    note('Hygiene details', d.hygiene_detail || d.hyg_detail),
+    row('Severity', d.hyg_sev),
+  ]);
 
-  // Behaviour
-  let beh = badge('Behaviour', data.behaviour, data.behaviour === 'Very calm' ? 'green' : data.behaviour === 'Difficult' ? 'red' : 'amber') + note(data.beh_detail) + (data.handling ? `<div style="margin-top:8px;font-size:13px;color:#5a5a56;"><strong>Handling notes:</strong> ${data.handling}</div>` : '');
-  sections += sec('Behaviour', 'red', beh);
+  // Post-wash skin check (van)
+  sections += section('Post-wash skin check', 'blue', [
+    row('Anything visible on skin?', d.skin_post),
+    note('Skin details', d.skin_detail),
+  ]);
 
   // Nails
-  if (data.nails) sections += sec('Nails', 'gray', badge('Condition', data.nails, 'gray'));
+  sections += section('Nails', 'gray', [
+    row('Nail condition', d.nails),
+    note('Nail details', d.nail_detail),
+  ]);
 
   // Deshedding
-  if (data.shed_vol || data.undercoat) {
-    sections += sec('Deshedding', 'amber',
-      badge('Volume', data.shed_vol, 'amber') + badge('Undercoat', data.undercoat, 'amber') +
-      badge('Tool', data.shed_tool, 'gray') + badge('Time', data.shed_time, 'gray') + note(data.undercoat_notes));
-  }
+  sections += section('Deshedding', 'amber', [
+    row('Undercoat density', d.undercoat),
+    row('Shedding volume', d.shed_vol),
+    row('Tool used', d.shed_tool),
+    row('Time spent', d.shed_time),
+    note('Undercoat notes', d.undercoat_notes),
+  ]);
 
-  // Products (van)
-  if ((data.products||[]).length || data.prod_other) {
-    sections += sec('Products used', 'blue', chips(data.products, 'green') + note(data.prod_other));
-  }
+  // Products used (van)
+  sections += section('Products used', 'blue', [
+    row('Products', d.products),
+    note('Other products', d.prod_other),
+  ]);
 
-  // Target & plan (foundational)
-  if (isFound && data.target) {
-    let plan = `<div style="font-size:14px;font-weight:500;color:#1a1a18;background:#EEEDFE;padding:12px;border-radius:8px;margin-bottom:12px;line-height:1.5;">"${data.target}"</div>`;
-    plan += badge('Frequency', data.freq, 'purple');
-    if (data.phase1) plan += `<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#534AB7;margin-bottom:4px;opacity:0.7;">Phase 1 (Weeks 1–2)</div><div style="font-size:13px;color:#5a5a56;">${data.phase1}</div></div>`;
-    if (data.phase2) plan += `<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#534AB7;margin-bottom:4px;opacity:0.7;">Phase 2 (Weeks 3–4)</div><div style="font-size:13px;color:#5a5a56;">${data.phase2}</div></div>`;
-    if (data.phase3) plan += `<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#534AB7;margin-bottom:4px;opacity:0.7;">Phase 3 (Week 5)</div><div style="font-size:13px;color:#5a5a56;">${data.phase3}</div></div>`;
-    if (data.products_text) plan += `<div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#534AB7;margin-bottom:4px;opacity:0.7;">Products</div><div style="font-size:13px;color:#5a5a56;white-space:pre-line;">${data.products_text}</div></div>`;
-    sections += sec('Target outcome & plan', 'purple', plan);
+  // Behaviour
+  sections += section('Behaviour', 'red', [
+    row('Overall temperament', d.behaviour),
+    note('Behaviour details', d.beh_detail),
+    note('Handling notes', d.handling),
+  ]);
+
+  // Target outcome (foundational)
+  if (isFound) {
+    sections += section('Target outcome & plan', 'purple', [
+      note('Target outcome', d.target),
+      row('Recommended frequency', d.freq),
+      note('Phase 1 (Weeks 1–2)', d.phase1),
+      note('Phase 2 (Weeks 3–4)', d.phase2),
+      note('Phase 3 (Week 5)', d.phase3),
+      note('Products to use', d.products_text || d.products),
+    ]);
+    sections += section('Owner & access notes', 'gray', [
+      note('Notes for the team', d.owner_notes),
+    ]);
   }
 
   // Forward planning (van)
-  if ((data.focus||[]).length) {
-    let fwd = chips(data.focus, 'purple');
-    if (data.senior_note) fwd += `<div style="margin-top:10px;padding:10px;border-radius:8px;background:#FAEEDA;color:#854F0B;font-size:13px;"><strong>Note for senior:</strong> ${data.senior_note}</div>`;
-    sections += sec('Forward planning', 'purple', fwd);
-  }
-
-  // Owner notes
-  if (data.owner_notes) sections += sec('Owner & access notes', 'gray', `<div style="font-size:13px;color:#5a5a56;line-height:1.5;">${data.owner_notes}</div>`);
+  sections += section('Forward planning', 'purple', [
+    row('Focus for next period', d.focus),
+    note('Note for senior', d.senior_note),
+  ]);
 
   // Incident
-  if (data.incident === 'Yes') {
-    sections += sec('⚠️ Incident reported', 'red',
-      `<div style="padding:10px;border-radius:8px;background:#FCEBEB;color:#A32D2D;font-size:13px;margin-bottom:8px;">${data.inc_what||'—'}</div>` +
-      badge('Pet injured', data.pet_inj, data.pet_inj==='Yes'?'red':'green') +
-      badge('Groomer injured', data.grm_inj, data.grm_inj==='Yes'?'red':'green') +
-      badge('Owner informed', data.owner_inf, 'gray'));
+  if (d.incident === 'Yes') {
+    sections += section('⚠️ Incident reported', 'red', [
+      note('What happened', d.inc_what),
+      row('Pet injured', d.pet_inj),
+      row('Groomer injured', d.grm_inj),
+      row('Owner informed', d.owner_inf),
+    ]);
   }
 
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${data.pet||'Pet'} — ${formType}</title><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#eeecea;color:#1a1a18;min-height:100vh;}.container{max-width:560px;margin:0 auto;padding:16px 12px 48px;}</style></head><body><div class="container">
-  <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid rgba(0,0,0,0.08);">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <span style="padding:5px 14px;border-radius:20px;background:${typeBg};color:${typeColor};font-size:12px;font-weight:600;border:1px solid ${typeColor}40;">${formType}</span>
-      <span style="font-size:12px;color:#9a9a94;">${fields['fldJ9txpb878bmnEI']||''}</span>
+  // If still no sections (edge case), dump raw data
+  if (!sections.trim()) {
+    sections = `<div style="background:#FAEEDA;color:#854F0B;padding:16px;border-radius:12px;">
+      <strong>No form data found.</strong><br><br>
+      <pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;">${esc(JSON.stringify(d, null, 2))}</pre>
+    </div>`;
+  }
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${esc(d.pet || 'Pet')} — ${esc(formType)}</title><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#eeecea;color:#1a1a18;min-height:100vh;}.container{max-width:560px;margin:0 auto;padding:16px 12px 48px;}</style></head><body><div class="container">
+    <div style="background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <span style="padding:5px 14px;border-radius:20px;background:${typeBg};color:${typeColor};font-size:12px;font-weight:600;border:1px solid ${typeColor}40;">${esc(formType)}</span>
+        <span style="font-size:12px;color:#9a9a94;">${esc(dateSubmitted)}</span>
+      </div>
+      <div style="font-size:26px;font-weight:600;color:#1a1a18;margin-bottom:4px;">${esc(d.pet || '—')}</div>
+      <div style="font-size:14px;color:#5a5a56;">${esc(d.breed || '')}${d.age ? ' · ' + esc(d.age) : ''}</div>
+      <div style="margin-top:16px;padding:14px;border-radius:10px;background:#F1EFE8;border:1px dashed #B4B2A9;text-align:center;">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#888780;margin-bottom:2px;">AI Progress Score</div>
+        <div style="font-size:28px;font-weight:700;color:#B4B2A9;">— / 100</div>
+        <div style="font-size:11px;color:#9a9a94;">Coming soon</div>
+      </div>
     </div>
-    <div style="font-size:26px;font-weight:600;color:#1a1a18;margin-bottom:4px;">${data.pet||'—'}</div>
-    <div style="font-size:14px;color:#5a5a56;">${data.breed||''}${data.age?' · '+data.age:''}</div>
-    <div style="margin-top:12px;display:flex;gap:20px;flex-wrap:wrap;">
-      ${data.groomer?`<div style="font-size:13px;color:#5a5a56;"><span style="color:#9a9a94;">Groomer</span> · <strong>${data.groomer}</strong></div>`:''}
-      ${data.owner?`<div style="font-size:13px;color:#5a5a56;"><span style="color:#9a9a94;">Owner</span> · ${data.owner}</div>`:''}
-      ${data.plan?`<div style="font-size:13px;color:#5a5a56;"><span style="color:#9a9a94;">Plan</span> · ${data.plan}</div>`:''}
-    </div>
-    <div style="margin-top:16px;padding:14px;border-radius:10px;background:#F1EFE8;border:1px dashed #B4B2A9;text-align:center;">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#888780;margin-bottom:2px;">AI Progress Score</div>
-      <div style="font-size:28px;font-weight:700;color:#B4B2A9;">— / 100</div>
-      <div style="font-size:11px;color:#9a9a94;">Coming soon</div>
-    </div>
-  </div>
-  ${photoHTML ? `<div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(0,0,0,0.08);"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9a9a94;margin-bottom:12px;">Photos</div>${photoHTML}</div>` : ''}
-  ${sections}
-</div></body></html>`;
+    ${sections}
+  </div></body></html>`;
 }
