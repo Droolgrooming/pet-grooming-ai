@@ -95,6 +95,18 @@ function generateHTML(d, formType, groomer, dateSubmitted, fields, parseError) {
   const typeColor = isFound ? '#534AB7' : isTouch ? '#1D9E75' : '#185FA5';
   const typeBg = isFound ? '#EEEDFE' : isTouch ? '#E1F5EE' : '#E6F1FB';
 
+  // Build photos HTML
+  const photos = d._photos || [];
+  let photosHTML = '';
+  if (photos.length > 0) {
+    photosHTML = `<div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9a9a94;margin-bottom:12px;">Photos</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+        ${photos.map(p => `<div><a href="${esc(p.url)}" target="_blank" rel="noopener"><img src="${esc(p.url)}" style="width:100%;border-radius:10px;object-fit:cover;max-height:240px;display:block;cursor:pointer;" alt="${esc(p.label || '')}"/></a><div style="font-size:11px;color:#9a9a94;margin-top:4px;text-align:center;">${esc(p.label || '')}</div></div>`).join('')}
+      </div>
+    </div>`;
+  }
+
   let sections = '';
 
   if (parseError) {
@@ -231,6 +243,7 @@ function generateHTML(d, formType, groomer, dateSubmitted, fields, parseError) {
         <div style="font-size:11px;color:#9a9a94;">Coming soon</div>
       </div>
     </div>
+    ${photosHTML}
     ${sections}
   </div></body></html>`;
 }
