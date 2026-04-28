@@ -74,8 +74,7 @@ const API_ENDPOINT = "/api/submit";
 const TABS = [
   { id:"foundational", label:"Foundation", color:"#534AB7" },
   { id:"touchup",      label:"Touch-up",   color:"#1D9E75" },
-  { id:"van",          label:"Van",         color:"#185FA5" },
-  { id:"submissions",  label:"Results",     color:"#888780" }
+  { id:"van",          label:"Van",         color:"#185FA5" }
 ];
 
 let currentTab = "touchup";
@@ -303,7 +302,7 @@ function renderFoundational(){
   if(d.__submitted) return `<div class="success-screen">
     <div class="success-icon">✓</div>
     <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Assessment saved</h2>
-    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Foundational report submitted to Airtable.<br>View it in the Results tab.</p>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Foundational report submitted successfully.</p>
     <button onclick="resetForm('foundational')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#534AB7;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New assessment</button>
   </div>`;
 
@@ -347,7 +346,10 @@ function renderFoundational(){
     TextArea("foundational","phase1","Phase 1 priorities (Weeks 1–2)","What should groomers focus on first...")+
     TextArea("foundational","phase2","Phase 2 priorities (Weeks 3–4)","What shifts in the middle...")+
     TextArea("foundational","phase3","Phase 3 priorities (Week 5)","Maintenance and monitoring...")+
-    TextArea("foundational","products","Products to use","Product — when to use — notes (one per line)")
+    TextArea("foundational","products_plan","Products recommended for ongoing care","Product — when to use — notes (one per line)")
+  );
+  html += Section("Products used in this session","#185FA5","#E6F1FB",
+    TextArea("foundational","products_used","Products used today","List the products you used in this session...",4)
   );
   html += Section("Owner and access notes","#888780","#F1EFE8",
     TextArea("foundational","owner_notes","Practical notes for the team","Who's home, where to groom, parking, other pets...",4)
@@ -367,7 +369,7 @@ function renderTouchup(){
   if(d.__submitted) return `<div class="success-screen">
     <div class="success-icon">✓</div>
     <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Touch-up saved</h2>
-    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Session report submitted to Airtable.<br>View it in the Results tab.</p>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Session report submitted successfully.</p>
     <button onclick="resetForm('touchup')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New session</button>
   </div>`;
 
@@ -436,7 +438,7 @@ function renderVan(){
   if(d.__submitted) return `<div class="success-screen">
     <div class="success-icon">✓</div>
     <h2 style="color:var(--color-text-primary);margin-bottom:8px;">Van session saved</h2>
-    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Full report submitted to Airtable.<br>View it in the Results tab.</p>
+    <p style="color:var(--color-text-secondary);font-size:14px;line-height:1.5;">Full report submitted successfully.</p>
     <button onclick="resetForm('van')" style="margin-top:20px;padding:10px 24px;border-radius:20px;border:none;background:#185FA5;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">New session</button>
   </div>`;
 
@@ -587,7 +589,6 @@ function renderForm(){
   if(currentTab==="foundational") area.innerHTML = renderFoundational();
   else if(currentTab==="touchup") area.innerHTML = renderTouchup();
   else if(currentTab==="van") area.innerHTML = renderVan();
-  else area.innerHTML = renderSubmissions();
 }
 
 renderTabBar();
