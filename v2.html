@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pet Sessions — V2</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #eeecea;
+    --surface: #ffffff;
+    --surface2: #f5f5f4;
+    --text: #1a1a18;
+    --text2: #5a5a56;
+    --text3: #9a9a94;
+    --border: rgba(0,0,0,0.12);
+    --accent: #534AB7;
+    --accent-bg: #EEEDFE;
+    --green: #0F6E56;
+    --green-bg: #E1F5EE;
+    --amber: #BA7517;
+    --amber-bg: #FAEEDA;
+    --red: #A32D2D;
+    --red-bg: #FCEBEB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --surface: #2a2a28;
+      --surface2: #252523;
+      --text: #f0ede8;
+      --text2: #a8a49e;
+      --text3: #6a6660;
+      --border: rgba(255,255,255,0.12);
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container { max-width: 520px; margin: 0 auto; padding: 16px 12px 40px; }
+  .header { text-align: center; margin-bottom: 20px; padding-top: 8px; }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+  select, button {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+  .session-card {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .session-card .row { display: flex; justify-content: space-between; align-items: center; }
+  .session-card .row + .row { margin-top: 4px; }
+  .session-card a { color: var(--accent); text-decoration: none; font-size: 12px; }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge.purple { background: var(--accent-bg); color: var(--accent); }
+  .badge.green { background: var(--green-bg); color: var(--green); }
+  .badge.amber { background: var(--amber-bg); color: var(--amber); }
+
+  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-row .k { color: var(--text2); }
+  .info-row .v { font-weight: 500; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat { padding: 10px; background: var(--surface2); border-radius: 10px; text-align: center; }
+  .stat .num { font-size: 22px; font-weight: 600; color: var(--text); }
+  .stat .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  .form-launcher { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .form-launcher button { padding: 14px 8px; font-size: 13px; font-weight: 500; border: none; color: #fff; }
+  .form-launcher .found { background: #534AB7; }
+  .form-launcher .touch { background: #1D9E75; }
+  .form-launcher .van { background: #185FA5; }
+
+  .target-box { padding: 12px; background: var(--accent-bg); color: var(--accent); border-radius: 10px; font-size: 13px; line-height: 1.5; font-style: italic; }
+
+  .empty { text-align: center; padding: 32px 16px; color: var(--text2); font-size: 14px; }
+  .loading { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🐾 Pet Sessions</h1>
+    <p>Select a pet to view history and start a session</p>
+  </div>
+
+  <div class="card">
+    <div class="label">Select pet</div>
+    <select id="petSelect">
+      <option value="">— Loading pets... —</option>
+    </select>
+  </div>
+
+  <div id="petDetails"></div>
+</div>
+
+<script>
+let pets = [];
+let currentPet = null;
+
+async function loadPets() {
+  try {
+    const res = await fetch("/api/pets");
+    const data = await res.json();
+    pets = data.pets || [];
+    renderPetSelect();
+  } catch(err) {
+    document.getElementById("petSelect").innerHTML = '<option value="">— Error loading pets —</option>';
+  }
+}
+
+function renderPetSelect() {
+  const sel = document.getElementById("petSelect");
+  if (!pets.length) {
+    sel.innerHTML = '<option value="">— No pets yet, add one in Airtable first —</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— Choose a pet —</option>' +
+    pets.map(p => `<option value="${p.id}">${p.name} — ${p.breed || 'No breed'}</option>`).join('');
+  sel.onchange = (e) => {
+    if (e.target.value) loadPetHistory(e.target.value);
+    else { document.getElementById("petDetails").innerHTML = ""; currentPet = null; }
+  };
+}
+
+async function loadPetHistory(petId) {
+  document.getElementById("petDetails").innerHTML = '<div class="loading">Loading pet history...</div>';
+  try {
+    const res = await fetch("/api/pet-history?petId=" + petId);
+    const data = await res.json();
+    currentPet = data.pet;
+    renderPetDetails(data.pet, data.questionnaires || []);
+  } catch(err) {
+    document.getElementById("petDetails").innerHTML = '<div class="empty">Error loading history</div>';
+  }
+}
+
+function renderPetDetails(pet, questionnaires) {
+  const lastDate = pet.lastSession ? new Date(pet.lastSession).toLocaleDateString('en-GB') : '—';
+  const score = pet.latestScore !== null && pet.latestScore !== undefined ? pet.latestScore : '—';
+
+  let qHtml = '';
+  if (questionnaires.length) {
+    qHtml = questionnaires.map(q => {
+      const dateStr = q.date ? new Date(q.date).toLocaleDateString('en-GB') : '—';
+      let badgeClass = 'purple';
+      if (q.formType === 'Touch-up') badgeClass = 'green';
+      else if (q.formType === 'Van maintenance') badgeClass = 'amber';
+      return `<div class="session-card">
+        <div class="row">
+          <span class="badge ${badgeClass}">${q.formType || 'Session'}</span>
+          <span style="font-size:12px;color:var(--text3);">${dateStr}</span>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <span style="font-size:13px;">Groomer: ${q.groomer || '—'}</span>
+          ${q.reportUrl ? `<a href="${q.reportUrl}" target="_blank">View report →</a>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    qHtml = '<div class="empty">No sessions yet — start the first one below</div>';
+  }
+
+  document.getElementById("petDetails").innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px;">
+        <div>
+          <div style="font-size:22px;font-weight:600;">${pet.name}</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:2px;">${pet.breed || ''} ${pet.owner ? '· ' + pet.owner : ''}</div>
+        </div>
+        ${pet.plan ? `<span class="badge purple">${pet.plan}</span>` : ''}
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="num">${pet.totalSessions}</div><div class="lbl">Sessions</div></div>
+        <div class="stat"><div class="num">${score}</div><div class="lbl">Last score</div></div>
+        <div class="stat"><div class="num" style="font-size:13px;font-weight:500;">${lastDate}</div><div class="lbl">Last visit</div></div>
+      </div>
+
+      ${pet.target ? `
+        <div class="label" style="margin-top:14px;">Target outcome</div>
+        <div class="target-box">${pet.target}</div>
+      ` : ''}
+    </div>
+
+    <div class="card">
+      <div class="label">Recent sessions</div>
+      ${qHtml}
+    </div>
+
+    <div class="card">
+      <div class="label">Start new session</div>
+      <div class="form-launcher">
+        <button class="found" onclick="startSession('foundational')">Foundation</button>
+        <button class="touch" onclick="startSession('touchup')">Touch-up</button>
+        <button class="van" onclick="startSession('van')">Van</button>
+      </div>
+    </div>
+  `;
+}
+
+function startSession(type) {
+  if (!currentPet) return;
+  // Pre-fill the existing form via URL params
+  const params = new URLSearchParams({
+    petId: currentPet.id,
+    pet: currentPet.name,
+    breed: currentPet.breed,
+    owner: currentPet.owner,
+    plan: currentPet.plan,
+    type: type
+  });
+  window.location.href = "/?" + params.toString();
+}
+
+loadPets();
+</script>
+</body>
+</html>
