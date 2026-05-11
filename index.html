@@ -81,6 +81,32 @@ let currentTab = "touchup";
 let forms = { foundational:{}, touchup:{}, van:{} };
 let photoURLs = {};
 
+// Pre-fill from URL parameters (when launched from /v2 page)
+(function prefillFromURL(){
+  const params = new URLSearchParams(window.location.search);
+  const petId = params.get("petId");
+  if(!petId) return; // no params, normal use
+
+  const type = params.get("type") || "touchup";
+  const petName = params.get("pet") || "";
+  const breed = params.get("breed") || "";
+  const owner = params.get("owner") || "";
+  const plan = params.get("plan") || "";
+
+  // Map URL type to tab id
+  if(type === "foundational" || type === "touchup" || type === "van"){
+    currentTab = type;
+  }
+
+  // Pre-fill the right form
+  const targetForm = forms[currentTab];
+  if(petName) targetForm.pet = petName;
+  if(breed) targetForm.breed = breed;
+  if(owner) targetForm.owner = owner;
+  if(plan) targetForm.plan = plan;
+  targetForm._petId = petId; // store linked pet ID for submission
+})();
+
 function setTab(id){ currentTab = id; renderTabBar(); renderForm(); }
 
 function renderTabBar(){
