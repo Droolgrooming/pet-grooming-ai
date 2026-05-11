@@ -15,17 +15,20 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
     if (!response.ok) return res.status(400).json({ error: data });
 
-    const pets = (data.records || []).map(r => ({
-      id: r.id,
-      name: r.fields['Pet Name'] || '—',
-      breed: r.fields['Breed'] || '',
-      owner: r.fields['Owner Name'] || '',
-      plan: r.fields['Plan Type'] || '',
-      target: r.fields['Target Outcome'] || '',
-      totalSessions: r.fields['Total Sessions'] || 0,
-      lastSession: r.fields['Last Session Date'] || null,
-      latestScore: r.fields['Latest AI Progress Score'] || null
-    }));
+    const pets = (data.records || []).map(r => {
+      const linkedQuestionnaires = r.fields['Questionnaires'] || [];
+      return {
+        id: r.id,
+        name: r.fields['Pet Name'] || '—',
+        breed: r.fields['Breed'] || '',
+        owner: r.fields['Owner Name'] || '',
+        plan: r.fields['Plan Type'] || '',
+        target: r.fields['Target Outcome'] || '',
+        totalSessions: linkedQuestionnaires.length,
+        lastSession: r.fields['Last Session Date'] || null,
+        latestScore: r.fields['Latest AI Progress Score'] || null
+      };
+    });
 
     return res.status(200).json({ pets });
   } catch (err) {
