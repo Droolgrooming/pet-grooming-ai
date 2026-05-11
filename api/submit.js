@@ -36,6 +36,11 @@ module.exports = async function handler(req, res) {
       fldzVNW1nYk1yekvR: formType
     };
 
+    // Link to pet if petId provided (from /v2 flow)
+    if (data._petId) {
+      fields['fldyMH0z8cXA4aJfI'] = [data._petId];
+    }
+
     if (attachments.length > 0) {
       fields[ATTACHMENTS_FIELD] = attachments;
     }
