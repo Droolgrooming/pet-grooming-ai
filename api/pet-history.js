@@ -12,7 +12,6 @@ module.exports = async function handler(req, res) {
   if (!petId) return res.status(400).json({ error: 'Missing petId' });
 
   try {
-    // Fetch pet record
     const petRes = await fetch(
       `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${PETS_TABLE}/${petId}`,
       { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` } }
@@ -21,24 +20,11 @@ module.exports = async function handler(req, res) {
     if (!petRes.ok) return res.status(404).json({ error: petData });
 
     const f = petData.fields;
-    const pet = {
-      id: petData.id,
-      name: f['Pet Name'] || '—',
-      breed: f['Breed'] || '',
-      owner: f['Owner Name'] || '',
-      phone: f['Phone Number'] || '',
-      plan: f['Plan Type'] || '',
-      target: f['Target Outcome'] || '',
-      totalSessions: f['Total Sessions'] || 0,
-      lastSession: f['Last Session Date'] || null,
-      latestScore: f['Latest AI Progress Score'] || null,
-      questionnaireIds: f['Questionnaires'] || []
-    };
+    const questionnaireIds = f['Questionnaires'] || [];
 
-    // Fetch related questionnaires (last 5)
-    const qIds = (pet.questionnaireIds || []).slice(-5).reverse();
+    // Fetch ALL questionnaires for this pet
     const questionnaires = [];
-    for (const qid of qIds) {
+    for (const qid of questionnaireIds) {
       try {
         const qRes = await fetch(
           `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}/${qid}`,
@@ -52,11 +38,63 @@ module.exports = async function handler(req, res) {
             formType: qData.fields['Form Type'] || '',
             groomer: qData.fields['Groomer'] || '',
             date: qData.fields['Date Submitted'] || '',
-            reportUrl: qData.fields['Vercel Link'] || ''
+            reportUrl: qData.fields['Vercel Link'] || '',
+            fullAnswers: qData.fields['Full Answers'] || ''
           });
         }
       } catch(e) {}
     }
+
+    // Sort by date descending (most recent first)
+    questionnaires.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    // Compute stats from questionnaires directly
+    const totalSessions = questionnaires.length;
+    const lastSession = questionnaires.length > 0 ? questionnaires[0].date : null;
+
+    // Detect attention flags by scanning Full Answers for concerning signals
+    const attentionFlags = [];
+    for (const q of questionnaires.slice(0, 3)) {
+      try {
+        const data = JSON.parse(q.fullAnswers || '{}');
+        // Severe matting
+        const matting = data.matting || data.mat_before;
+        if (matting === 'Severe mats' || matting === 'Moderate mats') {
+          attentionFlags.push({ session: q.date, issue: `${matting} noted`, severity: 'amber' });
+        }
+        // Difficult behaviour
+        if (data.behaviour === 'Difficult') {
+          attentionFlags.push({ session: q.date, issue: 'Difficult behaviour', severity: 'red' });
+        }
+        // Senior review needed
+        if (data.hyg_sev === 'Needs senior review') {
+          attentionFlags.push({ session: q.date, issue: 'Hygiene needs senior review', severity: 'red' });
+        }
+        // Incident
+        if (data.incident === 'Yes') {
+          attentionFlags.push({ session: q.date, issue: 'Incident reported', severity: 'red' });
+        }
+        // Lump or bump
+        const hyg = data.hygiene_issues || data.hygiene || [];
+        if (Array.isArray(hyg) && hyg.includes('Lump or bump')) {
+          attentionFlags.push({ session: q.date, issue: 'Lump or bump noted', severity: 'red' });
+        }
+      } catch(e) {}
+    }
+
+    const pet = {
+      id: petData.id,
+      name: f['Pet Name'] || '—',
+      breed: f['Breed'] || '',
+      owner: f['Owner Name'] || '',
+      phone: f['Phone Number'] || '',
+      plan: f['Plan Type'] || '',
+      target: f['Target Outcome'] || '',
+      totalSessions,
+      lastSession,
+      latestScore: f['Latest AI Progress Score'] || null,
+      attentionFlags
+    };
 
     return res.status(200).json({ pet, questionnaires });
   } catch (err) {
