@@ -17,12 +17,17 @@ module.exports = async function handler(req, res) {
     const record = await response.json();
     if (!response.ok) {
       res.setHeader('Content-Type', 'text/html');
-      return res.status(404).send('<h1>Waiver not found</h1>');
+      return res.status(404).send('<h1>Waiver not found</h1><pre>' + JSON.stringify(record) + '</pre>');
     }
 
     const fields = record.fields || {};
+    // Try BOTH field name AND field ID for the Full Answers field
+    const rawData = fields['Full Answers'] || fields['fldOiH9bAL6dX1kVU'] || '{}';
     let d = {};
-    try { d = JSON.parse(fields['fldOiH9bAL6dX1kVU'] || '{}'); } catch(e) {}
+    try { d = JSON.parse(rawData); } catch(e) {
+      res.setHeader('Content-Type', 'text/html');
+      return res.status(500).send('<h1>Could not parse waiver data</h1><pre>' + rawData + '</pre>');
+    }
 
     const signedDate = d.signed_at ? new Date(d.signed_at) : new Date();
     const dateStr = signedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -40,7 +45,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .signed-badge{display:inline-block;padding:6px 14px;background:#4a4ad8;color:white;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:0.04em;margin-bottom:18px;}
 .header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #4a4ad8;}
 .logo{font-size:22px;font-weight:600;color:#4a4ad8;letter-spacing:0.02em;}
-.subtitle{font-size:12px;color:#5a5a56;margin-top:4px;letter-spacing:0.08em;text-transform:uppercase;}
 .title{font-size:24px;font-weight:600;text-align:center;margin-bottom:6px;}
 .subtitle-italic{font-size:13px;color:#5a5a56;text-align:center;font-style:italic;margin-bottom:24px;}
 h2{font-size:16px;font-weight:600;margin:28px 0 14px;color:#4a4ad8;}
