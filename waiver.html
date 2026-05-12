@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yalla Care — Client Agreement</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #faf8f5;
+    --surface: #ffffff;
+    --text: #1a1a18;
+    --text2: #5a5a56;
+    --text3: #9a9a94;
+    --border: rgba(0,0,0,0.1);
+    --accent: #4a4ad8;
+    --accent-bg: #d5d5fd;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 640px; margin: 0 auto; padding: 24px 18px 48px; }
+  .header { text-align: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid var(--accent); }
+  .header .logo { font-size: 22px; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; }
+  .header .subtitle { font-size: 12px; color: var(--text2); margin-top: 4px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .title { font-size: 24px; font-weight: 600; text-align: center; margin-bottom: 6px; }
+  .subtitle-italic { font-size: 13px; color: var(--text2); text-align: center; font-style: italic; margin-bottom: 24px; }
+  .welcome { background: var(--accent-bg); padding: 16px 18px; border-radius: 12px; font-size: 14px; margin-bottom: 28px; color: var(--text); line-height: 1.6; }
+  h2 { font-size: 16px; font-weight: 600; margin: 28px 0 14px; color: var(--accent); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+  .field label .req { color: #c53030; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: var(--surface); color: var(--text);
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .row2 { grid-template-columns: 1fr; } }
+  .consent-box {
+    display: flex; gap: 12px; padding: 14px 16px; margin-bottom: 10px;
+    background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .consent-box:hover { border-color: var(--accent); }
+  .consent-box.checked { border-color: var(--accent); background: var(--accent-bg); }
+  .consent-box input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; accent-color: var(--accent); }
+  .consent-box .text { font-size: 13px; line-height: 1.55; color: var(--text); }
+  .info-card { padding: 16px 18px; background: #fef9e7; border: 1px solid #f0d770; border-radius: 12px; font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+  .info-card strong { display: block; margin-bottom: 4px; color: var(--text); }
+  .info-card .item { margin-bottom: 10px; }
+  .info-card .item:last-child { margin-bottom: 0; }
+  .radio-group { display: flex; flex-direction: column; gap: 10px; }
+  .agree-final { padding: 16px 18px; background: var(--accent-bg); border: 2px solid var(--accent); border-radius: 12px; margin-top: 18px; margin-bottom: 18px; }
+  .agree-final label { display: flex; gap: 12px; cursor: pointer; align-items: flex-start; }
+  .agree-final input { width: 20px; height: 20px; accent-color: var(--accent); margin-top: 2px; flex-shrink: 0; }
+  .agree-final .text { font-size: 14px; font-weight: 500; line-height: 1.5; }
+  button.submit {
+    width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px;
+  }
+  button.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 28px; font-style: italic; }
+  .success { text-align: center; padding: 40px 20px; }
+  .success .check { font-size: 56px; color: var(--accent); margin-bottom: 16px; }
+  .success h2 { color: var(--accent); border: none; font-size: 22px; margin-bottom: 12px; }
+  .success p { color: var(--text2); font-size: 15px; }
+  .saving-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999; }
+  .saving-box { background:#fff;padding:32px 40px;border-radius:16px;text-align:center; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #eee; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container" id="container">
+
+<div class="header">
+  <div class="logo">YALLA CARE</div>
+</div>
+
+<div class="title">Client Agreement</div>
+<div class="subtitle-italic">Please complete before your first session</div>
+
+<div class="welcome">
+  <strong>Welcome to Yalla Care.</strong> This short agreement helps us care for your pet safely and deliver the best possible results. It covers a few important things we need to know, and sets clear expectations for both sides. It takes less than two minutes to complete.
+</div>
+
+<form id="waiverForm">
+  <h2>About You & Your Pet</h2>
+
+  <div class="row2">
+    <div class="field"><label>Owner Name <span class="req">*</span></label><input type="text" name="owner_name" required /></div>
+    <div class="field"><label>Phone / WhatsApp <span class="req">*</span></label><input type="tel" name="phone" required /></div>
+  </div>
+
+  <div class="row2">
+    <div class="field"><label>Pet Name <span class="req">*</span></label><input type="text" name="pet_name" required /></div>
+    <div class="field"><label>Breed <span class="req">*</span></label><input type="text" name="breed" required /></div>
+  </div>
+
+  <div class="row2">
+    <div class="field"><label>Age</label><input type="text" name="age" placeholder="e.g. 3 years" /></div>
+    <div class="field"><label>Type <span class="req">*</span></label>
+      <select name="pet_type" required>
+        <option value="">— Select —</option>
+        <option value="Dog">Dog</option>
+        <option value="Cat">Cat</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field"><label>Any health conditions or known allergies?</label><textarea name="health" rows="2" placeholder="Skin sensitivities, food allergies, ongoing treatments..."></textarea></div>
+  <div class="field"><label>Any behavioural concerns to flag?</label><textarea name="behaviour" rows="2" placeholder="Reactive to other dogs, fearful of clippers, etc..."></textarea></div>
+
+  <h2>Your Consent</h2>
+  <p style="font-size:13px;color:var(--text2);font-style:italic;margin-bottom:12px;">Please tick each box to confirm:</p>
+
+  <label class="consent-box">
+    <input type="checkbox" name="vaccinations" required />
+    <span class="text">My pet is in good health and up to date with vaccinations required under UAE law. I confirm they have not shown signs of illness in the 48 hours before any session, and I will notify Yalla Care immediately if this changes.</span>
+  </label>
+
+  <label class="consent-box">
+    <input type="checkbox" name="no_aggression" required />
+    <span class="text">I confirm that, to the best of my knowledge, my pet has not previously injured a groomer or other professional without provocation, and I have disclosed any known behavioural concerns above.</span>
+  </label>
+
+  <label class="consent-box">
+    <input type="checkbox" name="stress_pause" required />
+    <span class="text">I understand and agree that if my pet shows signs of significant stress, anxiety, or discomfort during a session, Yalla Care may pause or end the session early. This decision is always made with my pet's wellbeing as the priority.</span>
+  </label>
+
+  <label class="consent-box">
+    <input type="checkbox" name="aggression_termination" required />
+    <span class="text">I understand that if my pet behaves aggressively in a way that puts the safety of the Yalla Care team at risk, the session will be stopped immediately. I accept that no session fee will be refunded on this basis, and we will work together on next steps.</span>
+  </label>
+
+  <label class="consent-box">
+    <input type="checkbox" name="photo_video" required />
+    <span class="text">I authorise Yalla Care to photograph and video my pet during sessions for the purpose of progress tracking and sharing updates with me directly.</span>
+  </label>
+
+  <h2>Marketing Use</h2>
+  <div class="radio-group">
+    <label class="consent-box">
+      <input type="radio" name="marketing" value="Yes — marketing OK" required />
+      <span class="text"><strong>YES</strong> — Yalla Care may use my pet's photos and videos on social media and marketing materials. My pet's first name may be used. No personal details will be shared.</span>
+    </label>
+    <label class="consent-box">
+      <input type="radio" name="marketing" value="No — internal use only" required />
+      <span class="text"><strong>NO</strong> — Please keep my pet's photos and videos for internal use and progress updates only.</span>
+    </label>
+  </div>
+
+  <h2>A Few Things to Know</h2>
+  <div class="info-card">
+    <div class="item"><strong>Pre-existing conditions.</strong> Yalla Care will not be liable for the aggravation of any health or skin condition that was not disclosed prior to the session. Letting us know upfront helps us choose the right approach and products for your pet.</div>
+    <div class="item"><strong>Emergency care.</strong> In the event of a medical emergency during a session, Yalla Care will contact you immediately. If you cannot be reached and immediate veterinary attention is required, you authorise Yalla Care to seek emergency care on your behalf. Any veterinary costs incurred are the owner's responsibility.</div>
+    <div class="item"><strong>Accuracy of information.</strong> You confirm that all information provided in this agreement is truthful and complete. Yalla Care accepts no liability for incidents arising from information that was withheld or inaccurately provided.</div>
+  </div>
+
+  <h2>Declaration</h2>
+  <div class="field"><label>Full Name <span class="req">*</span></label><input type="text" name="full_name" required placeholder="Type your full legal name" /></div>
+
+  <div class="agree-final">
+    <label>
+      <input type="checkbox" name="agree_final" required />
+      <span class="text">By ticking this box I confirm that I have read and understood this agreement, that all information provided is accurate, and that I agree to its terms for the duration of my pet's time with Yalla Care.</span>
+    </label>
+  </div>
+
+  <button type="submit" class="submit" id="submitBtn">Submit Agreement</button>
+</form>
+
+</div>
+
+<script>
+const form = document.getElementById("waiverForm");
+
+// Highlight checked consent boxes
+form.addEventListener("change", (e) => {
+  document.querySelectorAll(".consent-box").forEach(box => {
+    const input = box.querySelector("input");
+    if (input && input.checked) box.classList.add("checked");
+    else box.classList.remove("checked");
+  });
+});
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const fd = new FormData(form);
+  const data = {};
+  for (const [k, v] of fd.entries()) data[k] = v;
+  // Mark all checkboxes
+  ["vaccinations","no_aggression","stress_pause","aggression_termination","photo_video","agree_final"].forEach(name => {
+    data[name] = form.elements[name].checked;
+  });
+
+  showSaving();
+  try {
+    const res = await fetch("/api/waiver", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    hideSaving();
+    if (!res.ok) {
+      alert("Could not submit: " + (result.error || res.statusText));
+      return;
+    }
+    document.getElementById("container").innerHTML = `
+      <div class="success">
+        <div class="check">✓</div>
+        <h2>Agreement Received</h2>
+        <p>Thank you, ${data.owner_name}!<br/>We've received your signed agreement and your pet ${data.pet_name} is all set.</p>
+        <p style="margin-top:18px;font-size:13px;">You'll receive a confirmation message from us shortly.</p>
+      </div>
+    `;
+  } catch(err) {
+    hideSaving();
+    alert("Network error: " + err.message);
+  }
+});
+
+function showSaving() {
+  const el = document.createElement("div");
+  el.className = "saving-overlay";
+  el.id = "savingOverlay";
+  el.innerHTML = '<div class="saving-box"><div class="spinner"></div><div>Submitting agreement...</div></div>';
+  document.body.appendChild(el);
+}
+function hideSaving() { const el = document.getElementById("savingOverlay"); if (el) el.remove(); }
+</script>
+</body>
+</html>
