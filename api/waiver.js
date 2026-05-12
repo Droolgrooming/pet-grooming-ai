@@ -113,6 +113,18 @@ module.exports = async function handler(req, res) {
       }
     );
 
+    // Also update the Pet record with the waiver URL (overwrites previous waiver, always shows latest)
+    if (petId) {
+      await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${PETS_TABLE}/${petId}`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: { fldwKfXxRo2Vt946p: waiverUrl } })
+        }
+      );
+    }
+
     return res.status(200).json({ success: true, recordId, waiverUrl });
   } catch (err) {
     return res.status(500).json({ error: err.message });
