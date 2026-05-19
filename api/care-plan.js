@@ -1,6 +1,7 @@
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 const PETS_TABLE = 'tblAMDOwnSChJCZ2s';
+const QUESTIONNAIRES_TABLE = 'tblqZiJuTUNbqoptR';
 
 module.exports = async function handler(req, res) {
   const { id } = req.query || {};
@@ -29,29 +30,61 @@ module.exports = async function handler(req, res) {
     const owner = f['Owner Name'] || '';
     const programme = f['Plan Type'] || 'Hygiene';
     const programmeDisplay = programme === 'Hygiene+Deshedding' ? 'Hygiene + Deshedding' : programme;
-    const assessment = f['Assessment Results'] || '';
+    const assessment = f['Client-Facing Assessment'] || f['Assessment Results'] || '';
     const frequency = f['Touch-up Frequency'] || '';
     const vanDate = f['Van Maintenance Approximate Planned Date'] || '';
+    const linkedQuestionnaires = f['Questionnaires'] || [];
 
-    const lastModified = record.createdTime;
-    const updatedDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    // Calculate days until van maintenance
-    let vanDateDisplay = '—';
-    let daysUntil = '';
-    if (vanDate) {
-      const d = new Date(vanDate);
-      vanDateDisplay = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-      const now = new Date();
-      const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
-      if (diff > 0) daysUntil = `~ ${diff} day${diff !== 1 ? 's' : ''}`;
-      else if (diff === 0) daysUntil = 'Today';
-      else daysUntil = `${Math.abs(diff)} day${Math.abs(diff) !== 1 ? 's' : ''} overdue`;
+    // Check if a Van Maintenance session has been completed
+    let vanCompletedDate = null;
+    for (const qid of linkedQuestionnaires) {
+      try {
+        const qRes = await fetch(
+          `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${QUESTIONNAIRES_TABLE}/${qid}`,
+          { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` } }
+        );
+        const qData = await qRes.json();
+        if (qRes.ok && qData.fields && qData.fields['Form Type'] === 'Van maintenance') {
+          const date = qData.fields['Date Submitted'];
+          if (date && (!vanCompletedDate || date > vanCompletedDate)) {
+            vanCompletedDate = date;
+          }
+        }
+      } catch(e) {}
     }
 
-    // Frequency display
+    const updatedDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Van card content
+    let vanCardHTML = '';
+    if (vanCompletedDate) {
+      const d = new Date(vanCompletedDate);
+      const completedStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      vanCardHTML = `<div class="van-box completed">
+        <div class="label" style="margin-bottom:4px;">Van maintenance</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="check-badge">✓ Completed</span>
+          <span class="van-date-inline">${completedStr}</span>
+        </div>
+      </div>`;
+    } else if (vanDate) {
+      const d = new Date(vanDate);
+      const vanStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      const now = new Date();
+      const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+      let countdown = '';
+      if (diff > 0) countdown = `~ ${diff} day${diff !== 1 ? 's' : ''}`;
+      else if (diff === 0) countdown = 'Today';
+      else countdown = `${Math.abs(diff)} day${Math.abs(diff) !== 1 ? 's' : ''} overdue`;
+
+      vanCardHTML = `<div class="van-box">
+        <div class="label" style="margin-bottom:0;">Van maintenance approximate planned date</div>
+        <div class="van-date">${vanStr}</div>
+        <div class="van-countdown">${countdown}</div>
+      </div>`;
+    }
+
     const freqNumber = frequency ? frequency.split('x')[0] : '—';
-    const freqLabel = frequency ? 'per week' : '';
 
     res.setHeader('Content-Type', 'text/html');
     res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>${esc(petName)} — Care Plan</title>
@@ -70,13 +103,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9a9a94;margin-bottom:6px;}
 .section{margin-bottom:18px;}
 .prog-box{padding:10px 14px;background:#f5f5f4;border-radius:10px;font-size:14px;font-weight:500;}
-.assessment-text{font-size:13px;color:#5a5a56;line-height:1.6;}
+.assessment-text{font-size:13px;color:#5a5a56;line-height:1.7;white-space:pre-line;}
 .frequency{display:flex;align-items:baseline;gap:8px;}
 .freq-num{font-size:26px;font-weight:500;color:#4a4ad8;}
 .freq-lbl{font-size:13px;color:#5a5a56;}
 .van-box{background:#f5f5f4;border-radius:10px;padding:12px 14px;}
+.van-box.completed{background:#e1f5ee;}
 .van-date{font-size:16px;font-weight:500;margin-top:2px;}
 .van-countdown{font-size:11px;color:#5a5a56;margin-top:4px;}
+.van-date-inline{font-size:14px;font-weight:500;color:#1a1a18;}
+.check-badge{display:inline-block;padding:3px 10px;background:#0F6E56;color:#fff;border-radius:12px;font-size:11px;font-weight:600;}
 .update-note{margin-top:18px;padding:10px 14px;background:#d5d5fd;color:#4a4ad8;border-radius:10px;font-size:11px;text-align:center;line-height:1.5;}
 .print-btn{display:block;width:100%;margin-top:16px;padding:12px;background:#fff;border:1.5px solid #4a4ad8;color:#4a4ad8;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;}
 .print-btn:hover{background:#4a4ad8;color:#fff;}
@@ -92,7 +128,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 
 <div class="pet-card">
   <div class="pet-name">${esc(petName)}</div>
-  <div class="pet-meta">${esc(breed)}${age ? ' · ' + esc(age) : ''}${owner ? ' · Owner: ' + esc(owner) : ''}</div>
+  <div class="pet-meta">${esc(breed)}${age ? ' · ' + esc(age) + ' years' : ''}${owner ? ' · Owner: ' + esc(owner) : ''}</div>
 </div>
 
 <div class="section">
@@ -109,15 +145,11 @@ ${frequency ? `<div class="section">
   <div class="label">Touch-up frequency</div>
   <div class="frequency">
     <span class="freq-num">${esc(freqNumber)}x</span>
-    <span class="freq-lbl">${esc(freqLabel)}</span>
+    <span class="freq-lbl">per week</span>
   </div>
 </div>` : ''}
 
-${vanDate ? `<div class="van-box">
-  <div class="label" style="margin-bottom:0;">Van maintenance approximate planned date</div>
-  <div class="van-date">${vanDateDisplay}</div>
-  ${daysUntil ? `<div class="van-countdown">${daysUntil}</div>` : ''}
-</div>` : ''}
+${vanCardHTML}
 
 <div class="update-note">Your plan updates after every visit.</div>
 
