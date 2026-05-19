@@ -32,11 +32,14 @@ module.exports = async function handler(req, res) {
     const programmeDisplay = programme === 'Hygiene+Deshedding' ? 'Hygiene + Deshedding' : programme;
     const assessment = f['Client-Facing Assessment'] || f['Assessment Results'] || '';
     const frequency = f['Touch-up Frequency'] || '';
+    const previousFreq = f['Previous Frequency'] || '';
+    const freqChangedDate = f['Frequency Changed Date'] || '';
     const vanDate = f['Van Maintenance Approximate Planned Date'] || '';
+    const keyRecsRaw = f['Key Recommendations'] || '';
     const linkedQuestionnaires = f['Questionnaires'] || [];
 
-    // Check if a Van Maintenance session has been completed
-    let vanCompletedDate = null;
+    // Fetch all linked questionnaires to find Van + latest session
+    const sessions = [];
     for (const qid of linkedQuestionnaires) {
       try {
         const qRes = await fetch(
@@ -44,18 +47,126 @@ module.exports = async function handler(req, res) {
           { headers: { Authorization: `Bearer ${AIRTABLE_TOKEN}` } }
         );
         const qData = await qRes.json();
-        if (qRes.ok && qData.fields && qData.fields['Form Type'] === 'Van maintenance') {
-          const date = qData.fields['Date Submitted'];
-          if (date && (!vanCompletedDate || date > vanCompletedDate)) {
-            vanCompletedDate = date;
-          }
+        if (qRes.ok && qData.fields) {
+          let answers = {};
+          try { answers = JSON.parse(qData.fields['Full Answers'] || '{}'); } catch(e) {}
+          sessions.push({
+            id: qData.id,
+            formType: qData.fields['Form Type'] || '',
+            date: qData.fields['Date Submitted'] || '',
+            answers
+          });
         }
       } catch(e) {}
     }
 
+    // Sort sessions: most recent first, exclude waivers
+    const groomingSessions = sessions
+      .filter(s => s.formType !== 'Waiver')
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    // Find most recent Van Maintenance
+    const lastVan = sessions.find(s => s.formType === 'Van maintenance');
+    const vanCompletedDate = lastVan ? lastVan.date : null;
+
+    // Find most recent session for "Latest from last session"
+    const latestSession = groomingSessions[0];
+    const latestCoatCondition = latestSession?.answers?.coat_after || latestSession?.answers?.coat_look || '';
+    const latestMatting = latestSession?.answers?.mat_before || latestSession?.answers?.matting || '';
+    const latestBehaviour = latestSession?.answers?.behaviour || '';
+    const latestDate = latestSession?.date;
+
+    // Colour-code latest values
+    function coatBadge(value) {
+      if (!value) return { bg: '#f5f5f4', color: '#5a5a56' };
+      if (value === 'Bright, healthy shine') return { bg: '#E1F5EE', color: '#0F6E56' };
+      if (value === 'Clean, normal sheen') return { bg: '#E6F1FB', color: '#185FA5' };
+      if (value === 'Slightly dull') return { bg: '#FAEEDA', color: '#854F0B' };
+      return { bg: '#FCEBEB', color: '#A32D2D' };
+    }
+    function mattingBadge(value) {
+      if (!value) return { bg: '#f5f5f4', color: '#5a5a56' };
+      if (value === 'None') return { bg: '#E1F5EE', color: '#0F6E56' };
+      if (value === 'Light tangles') return { bg: '#E6F1FB', color: '#185FA5' };
+      if (value === 'Moderate mats') return { bg: '#FAEEDA', color: '#854F0B' };
+      return { bg: '#FCEBEB', color: '#A32D2D' };
+    }
+    function behaviourBadge(value) {
+      if (!value) return { bg: '#f5f5f4', color: '#5a5a56' };
+      if (value === 'Very calm') return { bg: '#E1F5EE', color: '#0F6E56' };
+      if (value === 'Mostly calm') return { bg: '#E6F1FB', color: '#185FA5' };
+      if (value === 'Unsettled') return { bg: '#FAEEDA', color: '#854F0B' };
+      return { bg: '#FCEBEB', color: '#A32D2D' };
+    }
+    function softenBehaviour(value) {
+      if (value === 'Difficult') return 'Anxious — working on it';
+      if (value === 'Unsettled') return 'A little unsettled';
+      return value;
+    }
+
     const updatedDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    // Van card content
+    // Build Key Recommendations cards
+    let recsHTML = '';
+    if (keyRecsRaw) {
+      const lines = keyRecsRaw.split('\n').filter(l => l.trim());
+      const cards = lines.map(line => {
+        const parts = line.split('|').map(p => p.trim());
+        if (parts.length < 3) return '';
+        const [color, icon, title, body = ''] = parts;
+        const colors = {
+          amber: { bg: '#fef3c7', border: '#d97706', titleColor: '#92400e', bodyColor: '#78350f' },
+          purple: { bg: '#d5d5fd', border: '#4a4ad8', titleColor: '#4a4ad8', bodyColor: '#4a4ad8' },
+          green: { bg: '#E1F5EE', border: '#0F6E56', titleColor: '#0F6E56', bodyColor: '#0a4d3c' }
+        };
+        const c = colors[color] || colors.amber;
+        return `<div class="rec-card" style="background:${c.bg};border-left:3px solid ${c.border};">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:${c.titleColor};">${esc(title)}</div>
+            ${body ? `<div style="font-size:12px;color:${c.bodyColor};opacity:0.85;margin-top:2px;line-height:1.5;">${esc(body)}</div>` : ''}
+          </div>
+        </div>`;
+      }).filter(Boolean).join('');
+      if (cards) {
+        recsHTML = `<div class="section">
+          <div class="label" style="color:#d97706;">⚠ Key recommendations</div>
+          <div class="rec-list">${cards}</div>
+        </div>`;
+      }
+    }
+
+    // Latest from last session panel
+    let latestHTML = '';
+    if (latestSession && (latestCoatCondition || latestMatting || latestBehaviour)) {
+      const latestDateStr = latestDate ? new Date(latestDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      const cb = coatBadge(latestCoatCondition);
+      const mb = mattingBadge(latestMatting);
+      const bb = behaviourBadge(latestBehaviour);
+      latestHTML = `<div class="latest-panel">
+        <div class="latest-header">
+          <span class="label" style="margin:0;">Latest from last session</span>
+          <span class="latest-date">${esc(latestDateStr)}</span>
+        </div>
+        ${latestCoatCondition ? `<div class="latest-row"><span class="latest-k">Coat condition</span><span class="chip" style="background:${cb.bg};color:${cb.color};">${esc(latestCoatCondition)}</span></div>` : ''}
+        ${latestMatting ? `<div class="latest-row"><span class="latest-k">Matting</span><span class="chip" style="background:${mb.bg};color:${mb.color};">${esc(latestMatting)}</span></div>` : ''}
+        ${latestBehaviour ? `<div class="latest-row"><span class="latest-k">Behaviour</span><span class="chip" style="background:${bb.bg};color:${bb.color};">${esc(softenBehaviour(latestBehaviour))}</span></div>` : ''}
+      </div>`;
+    }
+
+    // Frequency change indicator
+    let freqChangeHTML = '';
+    if (previousFreq && previousFreq !== frequency && frequency) {
+      const prevNum = parseInt(previousFreq);
+      const newNum = parseInt(frequency);
+      const direction = newNum < prevNum ? 'reduced' : 'increased';
+      const arrow = newNum < prevNum ? '↓' : '↑';
+      const dateStr = freqChangedDate ? new Date(freqChangedDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : '';
+      freqChangeHTML = `<div class="freq-change">
+        ${arrow} ${direction} from ${esc(previousFreq)}${dateStr ? ' after Van session on ' + dateStr : ''}
+      </div>`;
+    }
+
+    // Van card
     let vanCardHTML = '';
     if (vanCompletedDate) {
       const d = new Date(vanCompletedDate);
@@ -104,9 +215,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .section{margin-bottom:18px;}
 .prog-box{padding:10px 14px;background:#f5f5f4;border-radius:10px;font-size:14px;font-weight:500;}
 .assessment-text{font-size:13px;color:#5a5a56;line-height:1.7;white-space:pre-line;}
+.rec-list{display:flex;flex-direction:column;gap:8px;}
+.rec-card{padding:10px 12px;border-radius:6px;}
+.latest-panel{margin-bottom:18px;background:#f9f9f7;border-radius:10px;padding:14px 16px;}
+.latest-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+.latest-date{font-size:10px;color:#9a9a94;font-style:italic;}
+.latest-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;}
+.latest-k{font-size:12px;color:#5a5a56;}
+.chip{font-size:12px;font-weight:500;padding:3px 10px;border-radius:10px;}
 .frequency{display:flex;align-items:baseline;gap:8px;}
 .freq-num{font-size:26px;font-weight:500;color:#4a4ad8;}
 .freq-lbl{font-size:13px;color:#5a5a56;}
+.freq-change{font-size:11px;color:#0F6E56;background:#E1F5EE;padding:5px 10px;border-radius:6px;display:inline-block;margin-top:6px;}
 .van-box{background:#f5f5f4;border-radius:10px;padding:12px 14px;}
 .van-box.completed{background:#e1f5ee;}
 .van-date{font-size:16px;font-weight:500;margin-top:2px;}
@@ -137,9 +257,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 </div>
 
 ${assessment ? `<div class="section">
-  <div class="label">Assessment results</div>
+  <div class="label">Assessment</div>
   <div class="assessment-text">${esc(assessment)}</div>
 </div>` : ''}
+
+${recsHTML}
+
+${latestHTML}
 
 ${frequency ? `<div class="section">
   <div class="label">Touch-up frequency</div>
@@ -147,6 +271,7 @@ ${frequency ? `<div class="section">
     <span class="freq-num">${esc(freqNumber)}x</span>
     <span class="freq-lbl">per week</span>
   </div>
+  ${freqChangeHTML}
 </div>` : ''}
 
 ${vanCardHTML}
