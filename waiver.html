@@ -141,6 +141,11 @@
   </label>
 
   <label class="consent-box">
+    <input type="checkbox" name="inherent_risks" required />
+    <span class="text">I understand that grooming carries small inherent risks of minor injury (such as nicks, scrapes, or skin irritation), and that pre-existing conditions like hidden matting or skin issues may only become apparent during the session. Yalla Care follows professional safety protocols and will inform me immediately of any incident.</span>
+  </label>
+
+  <label class="consent-box">
     <input type="checkbox" name="photo_video" required />
     <span class="text">I authorise Yalla Care to photograph and video my pet during sessions for the purpose of progress tracking and sharing updates with me directly.</span>
   </label>
@@ -198,7 +203,7 @@ form.addEventListener("submit", async (e) => {
   const data = {};
   for (const [k, v] of fd.entries()) data[k] = v;
   // Mark all checkboxes
-  ["vaccinations","no_aggression","stress_pause","aggression_termination","photo_video","agree_final"].forEach(name => {
+  ["vaccinations","no_aggression","stress_pause","aggression_termination","inherent_risks","photo_video","agree_final"].forEach(name => {
     data[name] = form.elements[name].checked;
   });
 
