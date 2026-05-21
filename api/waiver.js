@@ -67,6 +67,7 @@ module.exports = async function handler(req, res) {
       no_aggression: data.no_aggression,
       stress_pause: data.stress_pause,
       aggression_termination: data.aggression_termination,
+      inherent_risks: data.inherent_risks,
       photo_video: data.photo_video,
       marketing: data.marketing,
       full_name: data.full_name,
