@@ -89,6 +89,7 @@ h2{font-size:16px;font-weight:600;margin:28px 0 14px;color:#4a4ad8;}
 <div class="consent-row"><span class="mark">${check(d.no_aggression)}</span><span class="text">Confirms pet has not previously injured a groomer or professional without provocation.</span></div>
 <div class="consent-row"><span class="mark">${check(d.stress_pause)}</span><span class="text">Agrees Yalla Care may pause or end a session if pet shows significant stress or discomfort.</span></div>
 <div class="consent-row"><span class="mark">${check(d.aggression_termination)}</span><span class="text">Accepts that aggressive behaviour endangering team will result in immediate termination, no refund.</span></div>
+<div class="consent-row"><span class="mark">${check(d.inherent_risks)}</span><span class="text">Acknowledges inherent risks of grooming (minor injury, hidden conditions like matting or skin issues) and that Yalla Care will inform of any incident.</span></div>
 <div class="consent-row"><span class="mark">${check(d.photo_video)}</span><span class="text">Authorises photography and video during sessions for progress tracking and owner updates.</span></div>
 
 <h2>Marketing Use</h2>
