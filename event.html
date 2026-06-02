@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yalla Care — Event Assessment</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #faf8f5;
+    --surface: #ffffff;
+    --text: #1a1a18;
+    --text2: #5a5a56;
+    --text3: #9a9a94;
+    --border: rgba(0,0,0,0.12);
+    --accent: #4a4ad8;
+    --accent-bg: #d5d5fd;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  .container { max-width: 480px; margin: 0 auto; padding: 16px 14px 32px; }
+  .header { text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid var(--accent); }
+  .logo { font-size: 20px; font-weight: 500; color: var(--accent); letter-spacing: 0.04em; }
+  .subtitle { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .title { font-size: 18px; font-weight: 500; text-align: center; margin-bottom: 16px; color: var(--text); }
+  .section { margin-bottom: 14px; background: var(--surface); border-radius: 12px; padding: 14px 16px; border: 1px solid var(--border); }
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 10px; }
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+  .field label .req { color: #c53030; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: var(--surface); color: var(--text);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 7px 12px; border-radius: 18px; border: 1.5px solid var(--border); background: var(--surface);
+    font-size: 12px; color: var(--text2); cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .chip.selected { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); font-weight: 500; }
+  button.submit {
+    width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 6px;
+  }
+  button.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .success { text-align: center; padding: 32px 18px; }
+  .success .check { font-size: 48px; color: var(--accent); margin-bottom: 14px; }
+  .success h2 { color: var(--accent); font-size: 20px; margin-bottom: 10px; }
+  .success p { color: var(--text2); font-size: 14px; line-height: 1.6; margin-bottom: 8px; }
+  .success .plan-link {
+    display: inline-block; margin-top: 18px; padding: 12px 20px; background: var(--accent);
+    color: white; text-decoration: none; border-radius: 10px; font-size: 14px; font-weight: 500;
+  }
+  .success .url-box {
+    margin-top: 14px; padding: 10px 12px; background: var(--accent-bg); border-radius: 8px;
+    font-size: 11px; color: var(--accent); word-break: break-all; font-family: monospace;
+  }
+  .saving-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999; }
+  .saving-box { background:#fff;padding:28px 36px;border-radius:16px;text-align:center; }
+  .spinner { width: 28px; height: 28px; border: 3px solid #eee; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container" id="container">
+
+<div class="header">
+  <div class="logo">YALLA CARE</div>
+  <div class="subtitle">Event Quick Assessment · 15 min</div>
+</div>
+
+<div class="title">Quick Pet Assessment</div>
+
+<div class="section">
+  <div class="section-title">Owner</div>
+  <div class="row2">
+    <div class="field"><label>Name <span class="req">*</span></label><input type="text" id="owner_name" /></div>
+    <div class="field"><label>Phone (WhatsApp) <span class="req">*</span></label><input type="tel" id="phone" placeholder="+971..." /></div>
+  </div>
+  <div class="field">
+    <label>Area in Dubai <span class="req">*</span></label>
+    <select id="area">
+      <option value="">— Select area —</option>
+      <option>Downtown</option>
+      <option>Dubai Marina</option>
+      <option>JBR</option>
+      <option>JLT</option>
+      <option>Palm Jumeirah</option>
+      <option>Dubai Hills</option>
+      <option>Emirates Hills</option>
+      <option>Arabian Ranches</option>
+      <option>Jumeirah</option>
+      <option>Umm Suqeim</option>
+      <option>Al Barsha</option>
+      <option>Business Bay</option>
+      <option>DIFC</option>
+      <option>City Walk</option>
+      <option>Mirdif</option>
+      <option>Damac Hills</option>
+      <option>Tilal Al Ghaf</option>
+      <option>Town Square</option>
+      <option>JVC</option>
+      <option>JVT</option>
+      <option>Motor City</option>
+      <option>Sports City</option>
+      <option>Silicon Oasis</option>
+      <option>Other</option>
+    </select>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Pet</div>
+  <div class="row2">
+    <div class="field"><label>Pet name <span class="req">*</span></label><input type="text" id="pet_name" /></div>
+    <div class="field"><label>Breed <span class="req">*</span></label><input type="text" id="breed" /></div>
+  </div>
+  <div class="field"><label>Age</label><input type="text" id="age" placeholder="e.g. 3 years" /></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Quick coat check</div>
+  <div class="field">
+    <label>Coat condition</label>
+    <div class="chips" id="coat-chips">
+      <button type="button" class="chip" data-field="coat" data-value="Bright, healthy shine">Healthy shine</button>
+      <button type="button" class="chip" data-field="coat" data-value="Clean, normal sheen">Normal</button>
+      <button type="button" class="chip" data-field="coat" data-value="Slightly dull">Slightly dull</button>
+      <button type="button" class="chip" data-field="coat" data-value="Dull or dirty">Dull or dirty</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Matting</label>
+    <div class="chips" id="mat-chips">
+      <button type="button" class="chip" data-field="matting" data-value="None">None</button>
+      <button type="button" class="chip" data-field="matting" data-value="Light tangles">Light tangles</button>
+      <button type="button" class="chip" data-field="matting" data-value="Moderate mats">Moderate mats</button>
+      <button type="button" class="chip" data-field="matting" data-value="Severe mats">Severe mats</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Shedding</label>
+    <div class="chips" id="shed-chips">
+      <button type="button" class="chip" data-field="shedding" data-value="Minimal">Minimal</button>
+      <button type="button" class="chip" data-field="shedding" data-value="Light">Light</button>
+      <button type="button" class="chip" data-field="shedding" data-value="Moderate">Moderate</button>
+      <button type="button" class="chip" data-field="shedding" data-value="Heavy">Heavy</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Concerns noticed (optional)</div>
+  <div class="chips" id="concern-chips">
+    <button type="button" class="chip" data-field="concerns" data-value="Tear staining" data-multi="true">Tear staining</button>
+    <button type="button" class="chip" data-field="concerns" data-value="Teeth buildup" data-multi="true">Teeth buildup</button>
+    <button type="button" class="chip" data-field="concerns" data-value="Ear care" data-multi="true">Ear care</button>
+    <button type="button" class="chip" data-field="concerns" data-value="Paw care" data-multi="true">Paw care</button>
+    <button type="button" class="chip" data-field="concerns" data-value="Skin sensitivity" data-multi="true">Skin sensitivity</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Behaviour during assessment</div>
+  <div class="chips" id="beh-chips">
+    <button type="button" class="chip" data-field="behaviour" data-value="Very calm">Very calm</button>
+    <button type="button" class="chip" data-field="behaviour" data-value="Mostly calm">Mostly calm</button>
+    <button type="button" class="chip" data-field="behaviour" data-value="Unsettled">Unsettled</button>
+    <button type="button" class="chip" data-field="behaviour" data-value="Difficult">Difficult</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Recommendation</div>
+  <div class="field">
+    <label>Programme</label>
+    <div class="chips" id="prog-chips">
+      <button type="button" class="chip" data-field="programme" data-value="Hygiene">Hygiene</button>
+      <button type="button" class="chip" data-field="programme" data-value="Hygiene + Deshedding">Hygiene + Deshedding</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Frequency</label>
+    <div class="chips" id="freq-chips">
+      <button type="button" class="chip" data-field="frequency" data-value="2x per week">2x per week</button>
+      <button type="button" class="chip" data-field="frequency" data-value="3x per week">3x per week</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>Notes (optional)</label>
+    <textarea id="notes" rows="2" placeholder="Anything else worth flagging..."></textarea>
+  </div>
+</div>
+
+<button type="button" class="submit" id="submitBtn">Generate Care Plan</button>
+
+</div>
+
+<script>
+const state = {};
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const field = chip.dataset.field;
+    const value = chip.dataset.value;
+    const isMulti = chip.dataset.multi === 'true';
+
+    if (isMulti) {
+      state[field] = state[field] || [];
+      if (state[field].includes(value)) {
+        state[field] = state[field].filter(v => v !== value);
+        chip.classList.remove('selected');
+      } else {
+        state[field].push(value);
+        chip.classList.add('selected');
+      }
+    } else {
+      document.querySelectorAll(`[data-field="${field}"]`).forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      state[field] = value;
+    }
+  });
+});
+
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const data = {
+    owner_name: document.getElementById('owner_name').value.trim(),
+    phone: document.getElementById('phone').value.trim(),
+    area: document.getElementById('area').value,
+    pet_name: document.getElementById('pet_name').value.trim(),
+    breed: document.getElementById('breed').value.trim(),
+    age: document.getElementById('age').value.trim(),
+    coat: state.coat || '',
+    matting: state.matting || '',
+    shedding: state.shedding || '',
+    concerns: state.concerns || [],
+    behaviour: state.behaviour || '',
+    programme: state.programme || '',
+    frequency: state.frequency || '',
+    notes: document.getElementById('notes').value.trim()
+  };
+
+  if (!data.owner_name || !data.phone || !data.area || !data.pet_name || !data.breed) {
+    alert('Please fill in owner name, phone, area, pet name and breed.');
+    return;
+  }
+
+  showSaving();
+  try {
+    const res = await fetch('/api/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    hideSaving();
+    if (!res.ok) {
+      alert('Could not save: ' + (result.error || res.statusText));
+      return;
+    }
+    document.getElementById('container').innerHTML = `
+      <div class="success">
+        <div class="check">✓</div>
+        <h2>Care plan ready</h2>
+        <p>Share this link with ${data.owner_name} via WhatsApp:</p>
+        <a href="${result.planUrl}" target="_blank" class="plan-link">View ${data.pet_name}'s Plan</a>
+        <div class="url-box">${result.planUrl}</div>
+        <p style="margin-top:18px;font-size:12px;">Tap the link to preview, then copy and send via WhatsApp.</p>
+        <button onclick="location.reload()" style="margin-top:18px;padding:10px 20px;background:transparent;border:1.5px solid var(--accent);color:var(--accent);border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;">New assessment</button>
+      </div>
+    `;
+  } catch(err) {
+    hideSaving();
+    alert('Network error: ' + err.message);
+  }
+});
+
+function showSaving() {
+  const el = document.createElement('div');
+  el.className = 'saving-overlay';
+  el.id = 'savingOverlay';
+  el.innerHTML = '<div class="saving-box"><div class="spinner"></div><div>Generating care plan...</div></div>';
+  document.body.appendChild(el);
+}
+function hideSaving() { const el = document.getElementById('savingOverlay'); if (el) el.remove(); }
+</script>
+</body>
+</html>
