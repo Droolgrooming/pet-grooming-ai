@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supervisor Observation Report — Yalla Grooming</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f4f0;
+    color: #2c2c2a;
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+
+  .shell {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    background: #534AB7;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    color: white;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .header p  { font-size: 13px; opacity: 0.75; }
+
+  /* Cards */
+  .card {
+    background: white;
+    border-radius: 12px;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 0.02em;
+  }
+  .card-head.purple { background: #534AB7; }
+  .card-head.teal   { background: #0F6E56; }
+  .card-head.amber  { background: #854F0B; }
+  .card-body { padding: 16px 18px; }
+
+  /* Fields */
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .field-grid.single { grid-template-columns: 1fr; }
+  .field-grid.three  { grid-template-columns: 1fr 1fr 1fr; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: #5f5e5a;
+    margin-bottom: 5px;
+    font-weight: 500;
+  }
+
+  input[type="text"],
+  input[type="date"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%;
+    border: 0.5px solid #b4b2a9;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: #2c2c2a;
+    background: white;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+    -webkit-appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: #534AB7;
+    box-shadow: 0 0 0 3px rgba(83,74,183,0.12);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* Yes/No rows */
+  .yn-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 0.5px solid #f1efe8;
+    gap: 12px;
+  }
+  .yn-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .yn-label { flex: 1; }
+  .yn-label strong { font-size: 13px; font-weight: 500; display: block; }
+  .yn-label span   { font-size: 11px; color: #888780; margin-top: 1px; display: block; }
+
+  .yn-buttons { display: flex; gap: 6px; flex-shrink: 0; margin-top: 1px; }
+  .yn-btn {
+    border: 0.5px solid #b4b2a9;
+    background: white;
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #5f5e5a;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .yn-btn.selected-yes { background: #EAF3DE; border-color: #639922; color: #3B6D11; }
+  .yn-btn.selected-no  { background: #FCEBEB; border-color: #E24B4A; color: #A32D2D; }
+  .yn-btn.selected-na  { background: #F1EFE8; border-color: #888780; color: #444441; }
+
+  /* Verdict */
+  .verdict-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .verdict-btn {
+    border: 0.5px solid #b4b2a9;
+    background: white;
+    border-radius: 8px;
+    padding: 10px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #5f5e5a;
+    text-align: center;
+    transition: all 0.12s;
+    line-height: 1.4;
+  }
+  .verdict-btn.selected-good    { background: #EAF3DE; border-color: #639922; color: #3B6D11; }
+  .verdict-btn.selected-minor   { background: #FAEEDA; border-color: #BA7517; color: #854F0B; }
+  .verdict-btn.selected-action  { background: #FCEBEB; border-color: #E24B4A; color: #A32D2D; }
+
+  /* Submit */
+  .submit-btn {
+    width: 100%;
+    background: #534AB7;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 15px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  .submit-btn:hover   { opacity: 0.9; }
+  .submit-btn:active  { opacity: 0.8; }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Toast */
+  .toast {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2c2c2a;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 100;
+    white-space: nowrap;
+  }
+  .toast.success { background: #0F6E56; }
+  .toast.error   { background: #A32D2D; }
+  .toast.show    { display: block; }
+
+  /* Success screen */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 40px 24px;
+    background: white;
+    border-radius: 12px;
+  }
+  .success-screen.show { display: block; }
+  .success-icon { font-size: 40px; margin-bottom: 12px; }
+  .success-screen h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .success-screen p  { font-size: 14px; color: #5f5e5a; margin-bottom: 20px; }
+  .new-btn {
+    background: #534AB7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="header">
+    <h1>Supervisor Observation Report</h1>
+    <p>Complete during or immediately after observing a session</p>
+  </div>
+
+  <div id="formWrap">
+
+    <!-- Session Info -->
+    <div class="card">
+      <div class="card-head purple">Session details</div>
+      <div class="card-body">
+        <div class="field-grid">
+          <div>
+            <label>Supervisor name</label>
+            <input type="text" id="supervisor" placeholder="Your name" />
+          </div>
+          <div>
+            <label>Groomer observed</label>
+            <select id="groomer">
+              <option value="">Select groomer</option>
+              <option>Arthur</option>
+              <option>Kenneth</option>
+              <option>Ernesto</option>
+              <option>King</option>
+              <option>Lando</option>
+              <option>Chad</option>
+              <option>Omar</option>
+              <option>Jerry</option>
+              <option>Paul</option>
+            </select>
+          </div>
+          <div>
+            <label>Date</label>
+            <input type="date" id="date" />
+          </div>
+          <div>
+            <label>Time in van (minutes)</label>
+            <input type="number" id="timeInVan" placeholder="e.g. 45" min="0" />
+          </div>
+          <div>
+            <label>Client name</label>
+            <input type="text" id="clientName" placeholder="Client's name" />
+          </div>
+          <div>
+            <label>Pet name(s)</label>
+            <input type="text" id="petName" placeholder="Pet's name(s)" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Grooming Quality -->
+    <div class="card">
+      <div class="card-head teal">1 — Grooming quality</div>
+      <div class="card-body">
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Followed client's brief accurately</strong>
+            <span>Cut style, length, areas to avoid — all done as requested</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'GQ_brief','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'GQ_brief','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Coat finish is even and complete</strong>
+            <span>No missed patches, uneven lines, or wet areas</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'GQ_coat','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'GQ_coat','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Nails trimmed on all paws</strong>
+            <span>Including dewclaws where present</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'GQ_nails','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'GQ_nails','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Ears clean and dry</strong>
+            <span>No water, shampoo, or debris remaining</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'GQ_ears','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'GQ_ears','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Tools sanitised before starting</strong>
+            <span>Blades, clippers, scissors — visibly cleaned</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'GQ_tools','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'GQ_tools','No')">No</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Pet Handling -->
+    <div class="card">
+      <div class="card-head teal">2 — Pet handling &amp; safety</div>
+      <div class="card-body">
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Play interaction first</strong>
+            <span>Spent time at pet's level, let pet sniff and settle before starting</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'PH_play','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'PH_play','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Calm and gentle handling throughout</strong>
+            <span>No rough holds, no force, no raised voice</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'PH_calm','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'PH_calm','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Responded correctly to stress signals</strong>
+            <span>Paused when pet showed distress; did not push through</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'PH_stress','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'PH_stress','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Called office before deviating</strong>
+            <span>e.g. matting, aggressive pet, unexpected skin condition</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'PH_office','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'PH_office','No')">No</button>
+            <button class="yn-btn" onclick="toggle(this,'PH_office','N/A')">N/A</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>No injuries or marks caused</strong>
+            <span>Skin intact, no cuts, no irritation visible post-groom</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'PH_injury','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'PH_injury','No')">No</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Customer Communication -->
+    <div class="card">
+      <div class="card-head teal">3 — Customer communication</div>
+      <div class="card-body">
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Used client's name in conversation</strong>
+            <span>Greeted by name, addressed by name throughout</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'CC_clientname','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'CC_clientname','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Used pet's name throughout</strong>
+            <span>Referred to the pet by name — not "the dog" or "it"</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'CC_petname','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'CC_petname','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Confirmed brief before starting</strong>
+            <span>Asked and clarified what the client wants</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'CC_brief','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'CC_brief','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Presented pet to client at the end</strong>
+            <span>Walked through what was done; mentioned anything to watch for</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'CC_presented','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'CC_presented','No')">No</button>
+          </div>
+        </div>
+        <div class="yn-row">
+          <div class="yn-label">
+            <strong>Professional and friendly manner</strong>
+            <span>Positive, respectful — no defensiveness or dismissiveness</span>
+          </div>
+          <div class="yn-buttons">
+            <button class="yn-btn" onclick="toggle(this,'CC_manner','Yes')">Yes</button>
+            <button class="yn-btn" onclick="toggle(this,'CC_manner','No')">No</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overall Verdict -->
+    <div class="card">
+      <div class="card-head amber">Overall assessment</div>
+      <div class="card-body">
+        <div class="verdict-row">
+          <button class="verdict-btn" onclick="setVerdict(this,'All good')">✓ All good<br><span style="font-weight:400;font-size:11px;">No issues observed</span></button>
+          <button class="verdict-btn" onclick="setVerdict(this,'Minor issues')">~ Minor issues<br><span style="font-weight:400;font-size:11px;">Monitor &amp; follow up</span></button>
+          <button class="verdict-btn" onclick="setVerdict(this,'Action required')">! Action required<br><span style="font-weight:400;font-size:11px;">Needs discussion</span></button>
+        </div>
+        <label>Comments / actions (if any)</label>
+        <textarea id="comments" placeholder="Note anything specific that needs following up..."></textarea>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitForm()">Submit observation</button>
+
+  </div>
+
+  <!-- Success screen -->
+  <div class="success-screen" id="successScreen">
+    <div class="success-icon">✓</div>
+    <h2>Observation submitted</h2>
+    <p>The report has been saved to Airtable successfully.</p>
+    <button class="new-btn" onclick="resetForm()">Submit another</button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const AIRTABLE_BASE = 'appTwID6oLzZC6Cmz';
+const AIRTABLE_TABLE = 'Supervisor%20Observations';
+const AIRTABLE_TOKEN = 'patr7jlBm1AtcXzQ9.fd7e5a54c98a9b544b085e2b296d9d59e78d438fd216c905da2ac207049a3053';
+
+const state = {};
+
+function toggle(btn, field, val) {
+  const group = btn.closest('.yn-buttons');
+  group.querySelectorAll('.yn-btn').forEach(b => {
+    b.className = 'yn-btn';
+  });
+  if (val === 'Yes')  btn.classList.add('selected-yes');
+  if (val === 'No')   btn.classList.add('selected-no');
+  if (val === 'N/A')  btn.classList.add('selected-na');
+  state[field] = val;
+}
+
+let verdict = '';
+function setVerdict(btn, val) {
+  document.querySelectorAll('.verdict-btn').forEach(b => b.className = 'verdict-btn');
+  if (val === 'All good')       btn.classList.add('selected-good');
+  if (val === 'Minor issues')   btn.classList.add('selected-minor');
+  if (val === 'Action required') btn.classList.add('selected-action');
+  verdict = val;
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+function pad(n) { return String(n).padStart(2,'0'); }
+
+async function submitForm() {
+  const supervisor = document.getElementById('supervisor').value.trim();
+  const groomer    = document.getElementById('groomer').value;
+  const date       = document.getElementById('date').value;
+  const timeInVan  = document.getElementById('timeInVan').value;
+  const clientName = document.getElementById('clientName').value.trim();
+  const petName    = document.getElementById('petName').value.trim();
+  const comments   = document.getElementById('comments').value.trim();
+
+  if (!supervisor || !groomer || !date) {
+    showToast('Please fill in supervisor, groomer and date', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  const now = new Date();
+  const obsId = `OBS-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`;
+
+  const fields = {
+    'Observation ID': obsId,
+    'Date': date,
+    'Supervisor': supervisor,
+    'Groomer': groomer,
+    'Client Name': clientName,
+    'Pet Name': petName,
+    'GQ: Followed client brief':      state['GQ_brief']    || '',
+    'GQ: Coat even and complete':      state['GQ_coat']     || '',
+    'GQ: Nails trimmed all paws':      state['GQ_nails']    || '',
+    'GQ: Ears clean and dry':          state['GQ_ears']     || '',
+    'GQ: Tools sanitised before start':state['GQ_tools']    || '',
+    'PH: Play interaction first':      state['PH_play']     || '',
+    'PH: Calm and gentle handling':    state['PH_calm']     || '',
+    'PH: Responded to stress signals': state['PH_stress']   || '',
+    'PH: Called office before deviating': state['PH_office'] || '',
+    'PH: No injuries caused':          state['PH_injury']   || '',
+    'CC: Used client name':            state['CC_clientname']|| '',
+    'CC: Used pet name':               state['CC_petname']  || '',
+    'CC: Confirmed brief before starting': state['CC_brief']|| '',
+    'CC: Presented pet to client':     state['CC_presented']|| '',
+    'CC: Professional manner':         state['CC_manner']   || '',
+    'Overall Verdict': verdict || '',
+    'Comments': comments,
+  };
+
+  if (timeInVan) fields['Time in Van (mins)'] = parseInt(timeInVan);
+
+  try {
+    const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_TABLE}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AIRTABLE_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fields })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'Airtable error');
+    }
+
+    document.getElementById('formWrap').style.display = 'none';
+    document.getElementById('successScreen').classList.add('show');
+
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Submit observation';
+  }
+}
+
+function resetForm() {
+  document.getElementById('formWrap').style.display = 'block';
+  document.getElementById('successScreen').classList.remove('show');
+  document.getElementById('supervisor').value = '';
+  document.getElementById('groomer').value = '';
+  document.getElementById('date').value = '';
+  document.getElementById('timeInVan').value = '';
+  document.getElementById('clientName').value = '';
+  document.getElementById('petName').value = '';
+  document.getElementById('comments').value = '';
+  document.querySelectorAll('.yn-btn').forEach(b => b.className = 'yn-btn');
+  document.querySelectorAll('.verdict-btn').forEach(b => b.className = 'verdict-btn');
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitBtn').textContent = 'Submit observation';
+  Object.keys(state).forEach(k => delete state[k]);
+  verdict = '';
+}
+
+// Set today's date
+document.getElementById('date').value = new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
